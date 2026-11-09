@@ -8,6 +8,7 @@ import {
   STONE_LABELS,
   BACKPLATE_LABELS,
   BAIL_LABELS,
+  FixedBudgetCombination,
 } from '../types/jewelry';
 import {
   calculateCharmBudgetFixes,
@@ -27,7 +28,10 @@ import {
   TrendingUp,
   Scale,
   Zap,
+  Target,
 } from 'lucide-react';
+import { SpotPriceBar } from './SpotPriceBar';
+import { FixedBudgetMatrixModal } from './FixedBudgetMatrixModal';
 
 interface Props {
   config: CustomPieceConfig;
@@ -57,11 +61,24 @@ export const StaffCalculationsPage: React.FC<Props> = ({
   onApplyDiscount,
 }) => {
   const [budgetTargetInput, setBudgetTargetInput] = useState<string>('1500');
+  const [isMatrixOpen, setIsMatrixOpen] = useState<boolean>(false);
   const targetBudget = parseFloat(budgetTargetInput) || 1500;
   const budgetFixes = calculateCharmBudgetFixes(config, targetBudget, spotPrices, rates);
 
   const profitAmount = cost.retailPrice - cost.totalCogs;
   const marginPercent = ((profitAmount / cost.retailPrice) * 100).toFixed(1);
+
+  const handleSelectCombination = (comb: FixedBudgetCombination) => {
+    // Keep physical dimensions locked
+    onChangeConfig({
+      metal: comb.metal,
+      metalColor: comb.metalColor,
+      stoneType: comb.stoneType,
+      stoneCoverage: comb.stoneCoverage,
+      backplate: comb.backplate,
+    });
+    setIsMatrixOpen(false);
+  };
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 antialiased font-sans pb-16">
@@ -112,6 +129,9 @@ export const StaffCalculationsPage: React.FC<Props> = ({
           </div>
         </div>
       </header>
+
+      {/* Real-Time Spot Price Ticker Bar for all metals and stones */}
+      <SpotPriceBar spotPrices={spotPrices} onUpdateSpotPrices={onUpdateSpotPrices} />
 
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 space-y-6">
@@ -462,6 +482,16 @@ export const StaffCalculationsPage: React.FC<Props> = ({
                   </div>
                 ))}
               </div>
+
+              {/* Full Matrix Button */}
+              <button
+                type="button"
+                onClick={() => setIsMatrixOpen(true)}
+                className="w-full py-2.5 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-sm"
+              >
+                <Target className="w-4 h-4 text-amber-400" />
+                <span>Browse All Metal &amp; Stone Combinations for ${targetBudget.toLocaleString()}</span>
+              </button>
             </div>
 
             {/* LIVE SPOT OVERRIDE & SETTINGS QUICK DRAWER */}
@@ -508,6 +538,18 @@ export const StaffCalculationsPage: React.FC<Props> = ({
         </div>
 
       </main>
+
+      {/* FIXED BUDGET COMBINATION MATRIX MODAL */}
+      <FixedBudgetMatrixModal
+        config={config}
+        spotPrices={spotPrices}
+        rates={rates}
+        targetBudget={targetBudget}
+        isOpen={isMatrixOpen}
+        onClose={() => setIsMatrixOpen(false)}
+        onSelectCombination={handleSelectCombination}
+        onUpdateTargetBudget={(amt) => setBudgetTargetInput(amt.toString())}
+      />
     </div>
   );
 };

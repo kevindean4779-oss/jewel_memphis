@@ -49,11 +49,40 @@ export const BAIL_LABELS: Record<BailSize, string> = {
 };
 
 export interface SpotPrices {
-  goldPerOz: number;      // e.g. 2740
-  silverPerOz: number;    // e.g. 32.50
-  platinumPerOz: number;  // e.g. 985
+  goldPerOz: number;      // e.g. 4070.00
+  silverPerOz: number;    // e.g. 52.00
+  platinumPerOz: number;  // e.g. 1545.00
   brassPerGram: number;   // e.g. 0.08
+  naturalDiamondPerCarat?: number; // e.g. 420 ($35/stone)
+  labDiamondPerCarat?: number;     // e.g. 110 ($11.50/stone)
+  moissanitePerCarat?: number;     // e.g. 25 ($2.30/stone)
+  czPerPiece?: number;             // e.g. 0.07
   lastUpdated: string;
+}
+
+export type CombinationSortOption =
+  | 'closest_budget'
+  | 'price_low_high'
+  | 'price_high_low'
+  | 'metal_tier'
+  | 'stone_tier';
+
+export interface FixedBudgetCombination {
+  id: string;
+  metal: MetalType;
+  metalColor: MetalColor;
+  stoneType: StoneType;
+  stoneCoverage: StoneCoverage;
+  backplate: BackplateType;
+  customerPrice: number;
+  totalCost: number;
+  differenceFromBudget: number; // customerPrice - targetBudget
+  percentDifference: number;
+  matchType: 'exact' | 'under_budget' | 'slight_stretch' | 'over_budget';
+  calculatedGrams: number;
+  estimatedStoneCount: number;
+  estimatedCaratWeight: number;
+  isPopular?: boolean;
 }
 
 export interface ShopRates {

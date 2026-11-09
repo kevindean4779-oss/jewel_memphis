@@ -7,6 +7,7 @@ import {
   MetalType,
   MetalColor,
   StoneType,
+  FixedBudgetCombination,
 } from '../types/jewelry';
 import {
   Gem,
@@ -26,8 +27,12 @@ import {
   TrendingUp,
   Plus,
   Minus,
+  Target,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { VisualSketchSection } from './VisualSketchSection';
+import { SpotPriceBar } from './SpotPriceBar';
+import { FixedBudgetMatrixModal } from './FixedBudgetMatrixModal';
 
 interface Props {
   config: CustomPieceConfig;
@@ -57,6 +62,20 @@ export const CustomerFrontPage: React.FC<Props> = ({
   const [isRefreshingSpot, setIsRefreshingSpot] = useState(false);
   const [counterBudgetInput, setCounterBudgetInput] = useState<string>('1500');
   const [showWeightStaff, setShowWeightStaff] = useState<boolean>(false);
+  const [isFixedBudgetMatrixOpen, setIsFixedBudgetMatrixOpen] = useState<boolean>(false);
+  const [targetBudget, setTargetBudget] = useState<number>(1500);
+
+  const handleSelectCombination = (comb: FixedBudgetCombination) => {
+    // CRITICAL: Dimensions (height, width, depth) remain STRICTLY LOCKED
+    onChangeConfig({
+      metal: comb.metal,
+      metalColor: comb.metalColor,
+      stoneType: comb.stoneType,
+      stoneCoverage: comb.stoneCoverage,
+      backplate: comb.backplate,
+    });
+    setIsFixedBudgetMatrixOpen(false);
+  };
 
   // Gram price calculations for quick reference
   const goldPerGram24k = (spotPrices.goldPerOz ?? 4070) / 31.1034768;
@@ -165,63 +184,8 @@ export const CustomerFrontPage: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* LIVE SPOT PRICE BAR - Right below header as requested */}
-        <div className="bg-amber-50/70 border-t border-amber-200/60 px-4 sm:px-6 py-2">
-          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3 text-xs">
-            {/* Live Spot Ticker Items */}
-            <div className="flex flex-wrap items-center gap-3 sm:gap-6 font-mono">
-              {/* Live Pulsing Badge */}
-              <div className="flex items-center gap-1.5 bg-emerald-100 border border-emerald-300 text-emerald-800 px-2 py-0.5 rounded-full font-sans font-bold text-[10px] tracking-wide">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600" />
-                </span>
-                <span>LIVE MARKET FEED</span>
-              </div>
-
-              {/* Gold Spot */}
-              <div className="flex items-center gap-1.5">
-                <span className="font-sans font-bold text-slate-600 uppercase text-[11px]">
-                  Gold Spot:
-                </span>
-                <span className="font-bold text-amber-700 text-sm">
-                  ${(spotPrices.goldPerOz ?? 4070).toFixed(2)}/oz
-                </span>
-                <span className="text-[11px] text-slate-500 hidden sm:inline">
-                  (${goldPerGram24k.toFixed(2)}/g pure)
-                </span>
-              </div>
-
-              {/* Silver Spot */}
-              <div className="flex items-center gap-1.5">
-                <span className="font-sans font-bold text-slate-600 uppercase text-[11px]">
-                  Silver Spot:
-                </span>
-                <span className="font-bold text-slate-700 text-sm">
-                  ${(spotPrices.silverPerOz ?? 52).toFixed(2)}/oz
-                </span>
-                <span className="text-[11px] text-slate-500 hidden sm:inline">
-                  (${silverPerGram.toFixed(2)}/g)
-                </span>
-              </div>
-            </div>
-
-            {/* Quick Refresh & Last Updated */}
-            <div className="flex items-center gap-2.5 text-[11px] text-slate-500 font-sans">
-              <span>Updated: {spotPrices.lastUpdated}</span>
-              <button
-                type="button"
-                onClick={handleRefreshSpot}
-                disabled={isRefreshingSpot}
-                className="flex items-center gap-1 text-amber-800 hover:text-amber-950 font-semibold px-2 py-0.5 rounded hover:bg-amber-100 transition-colors"
-                title="Refresh Live Spot"
-              >
-                <RefreshCw className={`w-3 h-3 ${isRefreshingSpot ? 'animate-spin text-amber-600' : ''}`} />
-                <span>{isRefreshingSpot ? 'Fetching...' : 'Sync Live'}</span>
-              </button>
-            </div>
-          </div>
-        </div>
+        {/* LIVE SPOT PRICE BAR - All Metals & All Stones with Refiner/Gem Sheet */}
+        <SpotPriceBar spotPrices={spotPrices} onUpdateSpotPrices={onUpdateSpotPrices} />
       </header>
 
       {/* MAIN CONTENT AREA - White Canvas */}
@@ -738,8 +702,25 @@ export const CustomerFrontPage: React.FC<Props> = ({
                   </div>
                 </div>
 
+                {/* FIXED BUDGET DIMENSION LOCK CALLOUT */}
+                <div className="mt-4 pt-3 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const budget = parseFloat(counterBudgetInput) || cost.retailPrice || 1500;
+                      setTargetBudget(budget);
+                      setIsFixedBudgetMatrixOpen(true);
+                    }}
+                    className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-500/10 transition-transform active:scale-[0.99]"
+                  >
+                    <Target className="w-4 h-4 text-slate-950" />
+                    <span>Lock Dimensions ({config.heightInches}" × {config.widthInches}") &amp; Browse All Metal/Stone Builds</span>
+                    <ArrowRight className="w-4 h-4 text-slate-950" />
+                  </button>
+                </div>
+
                 {/* Primary Action Buttons */}
-                <div className="mt-4 pt-4 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
+                <div className="mt-3 pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
@@ -759,9 +740,9 @@ export const CustomerFrontPage: React.FC<Props> = ({
                     </button>
                   </div>
 
-                  {/* Customer Counter Offer Quick Assist */}
+                  {/* Customer Fixed Budget Quick Assist */}
                   <div className="flex items-center gap-2 text-xs">
-                    <span className="text-slate-400 hidden sm:inline">Counter-Offer?</span>
+                    <span className="text-slate-400 hidden sm:inline">Fixed Budget?</span>
                     <div className="flex items-center bg-slate-900 px-2 py-1 rounded-lg border border-slate-700">
                       <span className="text-amber-400 font-mono mr-1">$</span>
                       <input
@@ -774,10 +755,15 @@ export const CustomerFrontPage: React.FC<Props> = ({
                     </div>
                     <button
                       type="button"
-                      onClick={() => onQuickBudgetTarget(parseFloat(counterBudgetInput) || 1500)}
-                      className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold text-xs border border-amber-500/40 flex items-center gap-1"
+                      onClick={() => {
+                        const budget = parseFloat(counterBudgetInput) || 1500;
+                        setTargetBudget(budget);
+                        setIsFixedBudgetMatrixOpen(true);
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1 shadow-sm transition-transform active:scale-95"
+                      title="Open combinations of all metals and stones at this fixed budget"
                     >
-                      <span>Match ${counterBudgetInput}</span>
+                      <span>Match ${counterBudgetInput} Matrix</span>
                       <ArrowRight className="w-3 h-3" />
                     </button>
                   </div>
@@ -840,6 +826,18 @@ export const CustomerFrontPage: React.FC<Props> = ({
           </div>
         </div>
       </aside>
+
+      {/* FIXED BUDGET COMBINATION MATRIX MODAL */}
+      <FixedBudgetMatrixModal
+        config={config}
+        spotPrices={spotPrices}
+        rates={rates}
+        targetBudget={targetBudget}
+        isOpen={isFixedBudgetMatrixOpen}
+        onClose={() => setIsFixedBudgetMatrixOpen(false)}
+        onSelectCombination={handleSelectCombination}
+        onUpdateTargetBudget={setTargetBudget}
+      />
     </div>
   );
 };

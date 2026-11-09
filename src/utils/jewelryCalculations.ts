@@ -4,6 +4,9 @@ import {
   SpotPrices,
   ShopRates,
   BudgetSuggestion,
+  FixedBudgetCombination,
+  CombinationSortOption,
+  StoneCoverage,
   MetalType,
   StoneType,
   BackplateType,
@@ -20,6 +23,10 @@ export const DEFAULT_SPOT_PRICES: SpotPrices = {
   silverPerOz: 52.00,       // Verified live silver spot price per troy oz
   platinumPerOz: 1545.00,   // Verified live platinum spot price per troy oz
   brassPerGram: 0.08,
+  naturalDiamondPerCarat: 420.00, // VS-SI natural melee per carat benchmark (~$35/stone)
+  labDiamondPerCarat: 110.00,     // VS DEF lab melee per carat benchmark (~$11.50/stone)
+  moissanitePerCarat: 25.00,      // VVS1 D-Color moissanite per carat benchmark (~$2.30/stone)
+  czPerPiece: 0.07,               // 5A brilliant CZ per piece
   lastUpdated: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
 };
 
@@ -51,6 +58,10 @@ export async function fetchLiveSpotPrices(): Promise<SpotPrices | null> {
       silverPerOz: silverPerOz > 0 ? silverPerOz : 52.00,
       platinumPerOz: platinumPerOz > 0 ? platinumPerOz : 1545.00,
       brassPerGram: 0.08,
+      naturalDiamondPerCarat: 420.00,
+      labDiamondPerCarat: 110.00,
+      moissanitePerCarat: 25.00,
+      czPerPiece: 0.07,
       lastUpdated: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
     };
   } catch (err) {
@@ -239,13 +250,13 @@ export function calculateCompleteCost(
   const metalLossCost = metalRawCost * (rates.refinerLossPercent / 100);
   const metalTotalWholesaleCost = metalRawCost + metalLossCost;
 
-  // Wholesale stone costs per piece
+  // Wholesale stone costs per piece dynamically linked to stone spot prices
   const wholesaleStoneCostPerPiece: Record<StoneType, number> = {
     none: 0,
-    cz: 0.07,
-    moissanite: 2.30,
-    lab_diamond: 11.50,
-    natural_diamond: 35.00,
+    cz: spotPrices.czPerPiece ?? 0.07,
+    moissanite: spotPrices.moissanitePerCarat ? Math.round((spotPrices.moissanitePerCarat * 0.092) * 100) / 100 : 2.30,
+    lab_diamond: spotPrices.labDiamondPerCarat ? Math.round((spotPrices.labDiamondPerCarat * 0.104) * 100) / 100 : 11.50,
+    natural_diamond: spotPrices.naturalDiamondPerCarat ? Math.round((spotPrices.naturalDiamondPerCarat * 0.083) * 100) / 100 : 35.00,
   };
 
   // Bench stone setting labor per piece
@@ -671,4 +682,145 @@ export function calculateCharmBudgetFixes(
     directDealMargin,
     fixes,
   };
+}
+
+const METAL_RANK: Record<MetalType, number> = {
+  platinum_950: 6,
+  gold_18k: 5,
+  gold_14k: 4,
+  gold_10k: 3,
+  silver_925: 2,
+  brass: 1,
+};
+
+const STONE_RANK: Record<StoneType, number> = {
+  natural_diamond: 5,
+  lab_diamond: 4,
+  moissanite: 3,
+  cz: 2,
+  none: 1,
+};
+
+/**
+ * Sorts fixed-budget combinations based on user criteria
+ */
+export function sortFixedBudgetCombinations(
+  combinations: FixedBudgetCombination[],
+  sortBy: CombinationSortOption
+): FixedBudgetCombination[] {
+  return [...combinations].sort((a, b) => {
+    switch (sortBy) {
+      case 'closest_budget': {
+        const absDiffA = Math.abs(a.differenceFromBudget);
+        const absDiffB = Math.abs(b.differenceFromBudget);
+        if (absDiffA !== absDiffB) return absDiffA - absDiffB;
+        return a.customerPrice - b.customerPrice;
+      }
+      case 'price_low_high':
+        return a.customerPrice - b.customerPrice;
+      case 'price_high_low':
+        return b.customerPrice - a.customerPrice;
+      case 'metal_tier': {
+        const rankDiff = METAL_RANK[b.metal] - METAL_RANK[a.metal];
+        if (rankDiff !== 0) return rankDiff;
+        return a.customerPrice - b.customerPrice;
+      }
+      case 'stone_tier': {
+        const rankDiff = STONE_RANK[b.stoneType] - STONE_RANK[a.stoneType];
+        if (rankDiff !== 0) return rankDiff;
+        return a.customerPrice - b.customerPrice;
+      }
+      default:
+        return Math.abs(a.differenceFromBudget) - Math.abs(b.differenceFromBudget);
+    }
+  });
+}
+
+/**
+ * Generates all metal, base, and stone proportion combinations
+ * for the EXACT physical dimensions specified by customer.
+ * CRITICAL: Dimensions (length, width, depth) remain 100% UNCHANGED.
+ */
+export function generateFixedDimensionCombinations(
+  currentConfig: CustomPieceConfig,
+  targetBudget: number,
+  spotPrices: SpotPrices,
+  rates: ShopRates,
+  sortBy: CombinationSortOption = 'closest_budget'
+): FixedBudgetCombination[] {
+  const metals: MetalType[] = ['gold_10k', 'gold_14k', 'silver_925', 'platinum_950', 'gold_18k', 'brass'];
+  const stones: StoneType[] = ['none', 'cz', 'moissanite', 'lab_diamond', 'natural_diamond'];
+  const backplates: BackplateType[] = ['mesh_cage', 'solid_plate', 'open'];
+
+  const results: FixedBudgetCombination[] = [];
+
+  metals.forEach((m) => {
+    stones.forEach((st) => {
+      // Proportions: Full bust down, top pavé face (half iced), or plain
+      const coverages: StoneCoverage[] = st === 'none' ? ['none'] : ['half_iced', 'full_bust_down'];
+
+      coverages.forEach((cov) => {
+        backplates.forEach((bp) => {
+          // Focus on standard honeycomb and solid back, plus open cavity for budget relief
+          if (bp === 'solid_plate' && st === 'natural_diamond') {
+            // Keep
+          } else if (bp !== 'mesh_cage' && bp !== currentConfig.backplate && bp !== 'open') {
+            return;
+          }
+
+          const testConfig: CustomPieceConfig = {
+            ...currentConfig,
+            metal: m,
+            stoneType: st,
+            stoneCoverage: cov,
+            backplate: bp,
+            // CRITICAL: Dimensions are strictly locked!
+            heightInches: currentConfig.heightInches,
+            widthInches: currentConfig.widthInches,
+            depthMm: currentConfig.depthMm,
+          };
+
+          const testCost = calculateCompleteCost(testConfig, spotPrices, rates);
+          const diff = testCost.retailPrice - targetBudget;
+          const absDiff = Math.abs(diff);
+          const percentDiff = Math.round((absDiff / targetBudget) * 100);
+
+          let matchType: 'exact' | 'under_budget' | 'slight_stretch' | 'over_budget' = 'over_budget';
+          if (absDiff <= 60) {
+            matchType = 'exact';
+          } else if (diff < 0) {
+            matchType = 'under_budget';
+          } else if (diff <= targetBudget * 0.15) {
+            matchType = 'slight_stretch';
+          } else {
+            matchType = 'over_budget';
+          }
+
+          results.push({
+            id: `${m}-${st}-${cov}-${bp}`,
+            metal: m,
+            metalColor: currentConfig.metalColor,
+            stoneType: st,
+            stoneCoverage: cov,
+            backplate: bp,
+            customerPrice: testCost.retailPrice,
+            totalCost: testCost.totalCogs,
+            differenceFromBudget: diff,
+            percentDifference: percentDiff,
+            matchType,
+            calculatedGrams: testCost.calculatedGrams,
+            estimatedStoneCount: testCost.estimatedStoneCount,
+            estimatedCaratWeight: testCost.estimatedCaratWeight,
+            isPopular:
+              (m === 'gold_10k' && st === 'moissanite') ||
+              (m === 'gold_14k' && st === 'cz') ||
+              (m === 'gold_10k' && st === 'lab_diamond') ||
+              (m === 'silver_925' && st === 'moissanite'),
+          });
+        });
+      });
+    });
+  });
+
+  return sortFixedBudgetCombinations(results, sortBy);
 }
