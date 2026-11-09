@@ -1,0 +1,6 @@
+{
+  "name": "CaratCraft Instant Jewelry Quoter",
+  "description": "Counter-ready custom jewelry quote generator with real-time gold spot pricing, reverse budget optimizer, interactive spec visualizer, and dual client/jeweler margin modes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
