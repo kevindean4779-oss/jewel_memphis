@@ -24,6 +24,8 @@ import {
   EyeOff,
   ChevronRight,
   TrendingUp,
+  Plus,
+  Minus,
 } from 'lucide-react';
 import { VisualSketchSection } from './VisualSketchSection';
 
@@ -265,14 +267,26 @@ export const CustomerFrontPage: React.FC<Props> = ({
                 </div>
               </div>
 
-              {/* Direct Numerical Inputs: Length, Width, Depth */}
-              <div className="grid grid-cols-3 gap-3">
+              {/* Direct Numerical Inputs with iPad Touch Steppers: Length, Width, Depth */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
                 {/* Length (Height) */}
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                  <label className="text-[11px] font-bold text-slate-600 block mb-1">
-                    Length / Height
-                  </label>
+                <div className="bg-slate-50 p-2.5 sm:p-3 rounded-xl border border-slate-200">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-bold text-slate-700">Length</label>
+                    <span className="text-[10px] text-slate-400 font-mono">in</span>
+                  </div>
                   <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = Math.max(0.5, Math.round(((config.heightInches ?? 2.0) - 0.25) * 100) / 100);
+                        onChangeConfig({ heightInches: next });
+                      }}
+                      className="w-8 h-8 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-bold flex items-center justify-center active:scale-90 transition-transform shadow-2xs shrink-0"
+                      title="Decrease 0.25 inch"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
                     <input
                       type="number"
                       step="0.1"
@@ -283,18 +297,40 @@ export const CustomerFrontPage: React.FC<Props> = ({
                         const val = parseFloat(e.target.value);
                         if (!isNaN(val) && val > 0) onChangeConfig({ heightInches: val });
                       }}
-                      className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-900 font-mono font-bold text-base focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                      className="w-full bg-white border border-slate-300 rounded-lg py-1 text-slate-900 font-mono font-bold text-base text-center focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                     />
-                    <span className="text-xs font-bold text-slate-400">in</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = Math.min(6.0, Math.round(((config.heightInches ?? 2.0) + 0.25) * 100) / 100);
+                        onChangeConfig({ heightInches: next });
+                      }}
+                      className="w-8 h-8 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-bold flex items-center justify-center active:scale-90 transition-transform shadow-2xs shrink-0"
+                      title="Increase 0.25 inch"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
 
                 {/* Width */}
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                  <label className="text-[11px] font-bold text-slate-600 block mb-1">
-                    Width
-                  </label>
+                <div className="bg-slate-50 p-2.5 sm:p-3 rounded-xl border border-slate-200">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-bold text-slate-700">Width</label>
+                    <span className="text-[10px] text-slate-400 font-mono">in</span>
+                  </div>
                   <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = Math.max(0.5, Math.round(((config.widthInches ?? 2.0) - 0.25) * 100) / 100);
+                        onChangeConfig({ widthInches: next });
+                      }}
+                      className="w-8 h-8 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-bold flex items-center justify-center active:scale-90 transition-transform shadow-2xs shrink-0"
+                      title="Decrease 0.25 inch"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
                     <input
                       type="number"
                       step="0.1"
@@ -305,18 +341,40 @@ export const CustomerFrontPage: React.FC<Props> = ({
                         const val = parseFloat(e.target.value);
                         if (!isNaN(val) && val > 0) onChangeConfig({ widthInches: val });
                       }}
-                      className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-900 font-mono font-bold text-base focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                      className="w-full bg-white border border-slate-300 rounded-lg py-1 text-slate-900 font-mono font-bold text-base text-center focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                     />
-                    <span className="text-xs font-bold text-slate-400">in</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = Math.min(6.0, Math.round(((config.widthInches ?? 2.0) + 0.25) * 100) / 100);
+                        onChangeConfig({ widthInches: next });
+                      }}
+                      className="w-8 h-8 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-bold flex items-center justify-center active:scale-90 transition-transform shadow-2xs shrink-0"
+                      title="Increase 0.25 inch"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
 
                 {/* Depth (Thickness) */}
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                  <label className="text-[11px] font-bold text-slate-600 block mb-1">
-                    Depth (Thickness)
-                  </label>
+                <div className="bg-slate-50 p-2.5 sm:p-3 rounded-xl border border-slate-200">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-bold text-slate-700">Depth</label>
+                    <span className="text-[10px] text-slate-400 font-mono">mm</span>
+                  </div>
                   <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = Math.max(1.5, Math.round(((config.depthMm ?? 3.5) - 0.5) * 10) / 10);
+                        onChangeConfig({ depthMm: next });
+                      }}
+                      className="w-8 h-8 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-bold flex items-center justify-center active:scale-90 transition-transform shadow-2xs shrink-0"
+                      title="Decrease 0.5 mm"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
                     <input
                       type="number"
                       step="0.5"
@@ -327,9 +385,19 @@ export const CustomerFrontPage: React.FC<Props> = ({
                         const val = parseFloat(e.target.value);
                         if (!isNaN(val) && val > 0) onChangeConfig({ depthMm: val });
                       }}
-                      className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-900 font-mono font-bold text-base focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                      className="w-full bg-white border border-slate-300 rounded-lg py-1 text-slate-900 font-mono font-bold text-base text-center focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                     />
-                    <span className="text-xs font-bold text-slate-400">mm</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = Math.min(10.0, Math.round(((config.depthMm ?? 3.5) + 0.5) * 10) / 10);
+                        onChangeConfig({ depthMm: next });
+                      }}
+                      className="w-8 h-8 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-bold flex items-center justify-center active:scale-90 transition-transform shadow-2xs shrink-0"
+                      title="Increase 0.5 mm"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -724,6 +792,54 @@ export const CustomerFrontPage: React.FC<Props> = ({
         {/* SECTION AT BOTTOM: VISUAL SKETCH & AI CAD GENERATOR (Device Camera & Text Description) */}
         <VisualSketchSection config={config} cost={cost} onChangeConfig={onChangeConfig} />
       </main>
+
+      {/* IPAD FLOATING BOTTOM QUOTE DOCK - Always visible across counter */}
+      <aside aria-label="Customer Quote Dock" className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 py-2.5 px-4 shadow-[0_-8px_20px_rgba(0,0,0,0.06)] print:hidden">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight">
+                Customer Price
+              </span>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-xl sm:text-2xl font-extrabold text-amber-600 font-mono tracking-tight leading-none">
+                  ${cost.retailPrice.toLocaleString()}
+                </span>
+                <span className="text-[11px] text-slate-500 font-medium hidden sm:inline">
+                  (50% Deposit: ${deposit50.toLocaleString()})
+                </span>
+              </div>
+            </div>
+            <div className="hidden md:flex items-center gap-1.5 pl-3 border-l border-slate-200 text-xs text-slate-600 font-mono">
+              <span className="font-bold text-slate-900">{config.heightInches}" × {config.widthInches}"</span>
+              <span>•</span>
+              <span className="capitalize">{config.metal.replace('_', ' ')}</span>
+              <span>•</span>
+              <span className="capitalize">{config.stoneType.replace('_', ' ')}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onOpenPrintModal}
+              className="px-3 py-2 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-800 text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Print Quote</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onGoToStaffPage}
+              className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-amber-300 text-xs font-bold flex items-center gap-1.5 shadow-md transition-all active:scale-95"
+            >
+              <Lock className="w-3.5 h-3.5 text-amber-400" />
+              <span>Staff Calculations</span>
+            </button>
+          </div>
+        </div>
+      </aside>
     </div>
   );
 };
