@@ -353,9 +353,9 @@ export const FixedBudgetMatrixModal: React.FC<Props> = ({
 
         {/* FOOTER BAR */}
         <div className="pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            <span>Exact 1:1 Scale Dimensions Preserved</span>
+          <div className="flex items-center gap-1.5 font-medium">
+            <span className="font-semibold text-slate-700">1:1 Dimensions Preserved:</span>
+            <span>{config.heightInches}" × {config.widthInches}" · Depth {config.depthMm}mm</span>
           </div>
           <button
             type="button"

@@ -862,13 +862,11 @@ export const VisualSketchSection: React.FC<Props> = ({ config, cost, onChangeCon
         <div className="lg:col-span-7 bg-white rounded-2xl p-3 shadow-md border-2 border-slate-200 relative overflow-hidden flex flex-col items-center">
           
           {/* Canvas Top Bar Controls on White */}
-          <div className="w-full flex items-center justify-between pb-2 mb-2 border-b border-slate-200 px-2 text-[11px] font-mono text-slate-600">
+          <div className="w-full flex items-center justify-between pb-2.5 mb-2 border-b border-slate-200 px-2 text-xs text-slate-700">
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="font-bold text-slate-800">WHITE STUDIO CAD VIEWPORT</span>
-              <span className="text-[10px] bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200">
-                {parsedDesign.displayLetters}
-              </span>
+              <span className="font-bold text-slate-900 tracking-tight">Atelier CAD Drafting Viewport</span>
+              <span aria-hidden="true" className="text-slate-300">·</span>
+              <span className="font-mono text-slate-500 text-[11px] font-semibold">{parsedDesign.displayLetters}</span>
             </div>
 
             <div className="flex items-center gap-2">

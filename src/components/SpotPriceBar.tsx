@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { SpotPrices } from '../types/jewelry';
 import { fetchLiveSpotPrices } from '../utils/jewelryCalculations';
-import { RefreshCw, Edit3, Check, Gem, Coins, Sparkles, TrendingUp } from 'lucide-react';
+import { RefreshCw, SlidersHorizontal, Check, Coins, Gem } from 'lucide-react';
 
 interface Props {
   spotPrices: SpotPrices;
@@ -14,19 +14,18 @@ export const SpotPriceBar: React.FC<Props> = ({ spotPrices, onUpdateSpotPrices }
   const [liveStatus, setLiveStatus] = useState<'live' | 'manual'>('live');
   const [activeCategory, setActiveCategory] = useState<'metals' | 'stones'>('metals');
 
-  // Metal input state
+  // Metal inputs
   const [goldVal, setGoldVal] = useState((spotPrices?.goldPerOz ?? 4070).toString());
   const [silverVal, setSilverVal] = useState((spotPrices?.silverPerOz ?? 52).toString());
   const [platVal, setPlatVal] = useState((spotPrices?.platinumPerOz ?? 1545).toString());
   const [brassVal, setBrassVal] = useState((spotPrices?.brassPerGram ?? 0.08).toString());
 
-  // Stone input state
+  // Stone inputs
   const [natDiaVal, setNatDiaVal] = useState((spotPrices?.naturalDiamondPerCarat ?? 420).toString());
   const [labDiaVal, setLabDiaVal] = useState((spotPrices?.labDiamondPerCarat ?? 110).toString());
   const [moissVal, setMoissVal] = useState((spotPrices?.moissanitePerCarat ?? 25).toString());
   const [czVal, setCzVal] = useState((spotPrices?.czPerPiece ?? 0.07).toString());
 
-  // Automatically fetch live spot prices on initial mount
   useEffect(() => {
     let isMounted = true;
     const fetchPrices = async () => {
@@ -48,8 +47,6 @@ export const SpotPriceBar: React.FC<Props> = ({ spotPrices, onUpdateSpotPrices }
     };
 
     fetchPrices();
-
-    // Auto-refresh spot prices every 60 seconds
     const interval = setInterval(fetchPrices, 60000);
     return () => {
       isMounted = false;
@@ -57,7 +54,6 @@ export const SpotPriceBar: React.FC<Props> = ({ spotPrices, onUpdateSpotPrices }
     };
   }, []);
 
-  // Gram calculations
   const goldGram24k = (spotPrices?.goldPerOz ?? 4070) / 31.1034768;
   const goldGram14k = goldGram24k * 0.5833;
   const goldGram10k = goldGram24k * 0.4167;
@@ -110,35 +106,27 @@ export const SpotPriceBar: React.FC<Props> = ({ spotPrices, onUpdateSpotPrices }
   };
 
   return (
-    <div className="bg-slate-900 border-b border-slate-800 px-3 sm:px-6 py-2 text-xs text-slate-200">
-      <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2.5">
+    <div className="bg-slate-100/90 border-b border-slate-200/90 px-4 sm:px-6 py-2 text-xs text-slate-700 select-none">
+      <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
         
-        {/* Category Switcher & Live Status */}
-        <div className="flex items-center gap-2">
-          {/* Live indicator */}
-          <div className="flex items-center gap-1.5 bg-slate-800/80 border border-slate-700 text-emerald-400 px-2 py-0.5 rounded-full font-bold text-[10px] tracking-wide">
-            <span className="relative flex h-2 w-2">
-              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                liveStatus === 'live' ? 'bg-emerald-400' : 'bg-amber-400'
-              }`} />
-              <span className={`relative inline-flex rounded-full h-2 w-2 ${
-                liveStatus === 'live' ? 'bg-emerald-500' : 'bg-amber-500'
-              }`} />
-            </span>
-            <span className="hidden sm:inline">
-              {liveStatus === 'live' ? 'LIVE FEEDS' : 'OVERRIDE'}
+        {/* Left: Interactive Category Segmented Control & Live Tag */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+            <span className="text-slate-400">Market Feed</span>
+            <span aria-hidden="true" className="text-slate-300">·</span>
+            <span className="text-emerald-700 font-bold uppercase tracking-wider text-[10px]">
+              {liveStatus === 'live' ? 'Live Feeds' : 'Refiner Override'}
             </span>
           </div>
 
-          {/* Toggle between Metals & Stones */}
-          <div className="flex items-center bg-slate-950 p-0.5 rounded-lg border border-slate-800">
+          <div className="flex items-center bg-white p-0.5 rounded-lg border border-slate-200 shadow-2xs">
             <button
               type="button"
               onClick={() => setActiveCategory('metals')}
-              className={`px-2.5 py-1 rounded text-[11px] font-bold flex items-center gap-1 transition-colors ${
+              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1.5 transition-all ${
                 activeCategory === 'metals'
-                  ? 'bg-amber-500 text-slate-950 shadow-xs'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-slate-900 text-amber-300 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <Coins className="w-3 h-3" />
@@ -147,10 +135,10 @@ export const SpotPriceBar: React.FC<Props> = ({ spotPrices, onUpdateSpotPrices }
             <button
               type="button"
               onClick={() => setActiveCategory('stones')}
-              className={`px-2.5 py-1 rounded text-[11px] font-bold flex items-center gap-1 transition-colors ${
+              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1.5 transition-all ${
                 activeCategory === 'stones'
-                  ? 'bg-cyan-500 text-slate-950 shadow-xs'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-slate-900 text-cyan-300 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <Gem className="w-3 h-3" />
@@ -159,104 +147,76 @@ export const SpotPriceBar: React.FC<Props> = ({ spotPrices, onUpdateSpotPrices }
           </div>
         </div>
 
-        {/* Spot Ticker items */}
+        {/* Center: Clean Ticker items with tabular numerals */}
         {activeCategory === 'metals' ? (
-          <div className="flex flex-wrap items-center gap-3 sm:gap-5 font-mono text-xs">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-6 font-mono text-xs tabular-nums">
             {/* Gold */}
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] uppercase font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/30">
-                GOLD
-              </span>
-              <span className="text-white font-bold text-sm">
+              <span className="font-sans font-bold text-amber-800 text-[11px]">GOLD</span>
+              <span className="font-bold text-slate-900">
                 ${(spotPrices.goldPerOz ?? 4070).toFixed(2)}/oz
               </span>
-              <span className="text-slate-400 hidden lg:inline">
-                (14K: <strong className="text-amber-200 font-bold">${goldGram14k.toFixed(2)}/g</strong> · 10K: <strong className="text-amber-200 font-bold">${goldGram10k.toFixed(2)}/g</strong>)
+              <span className="text-slate-500 hidden lg:inline">
+                (14K: <strong className="text-slate-800 font-semibold">${goldGram14k.toFixed(2)}/g</strong> · 10K: <strong className="text-slate-800 font-semibold">${goldGram10k.toFixed(2)}/g</strong>)
               </span>
             </div>
 
             {/* Silver */}
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] uppercase font-bold text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
-                SILVER
-              </span>
-              <span className="text-white font-bold">${(spotPrices.silverPerOz ?? 52).toFixed(2)}/oz</span>
-              <span className="text-slate-400 hidden sm:inline">
-                (${silverGram.toFixed(2)}/g)
-              </span>
+              <span className="font-sans font-bold text-slate-600 text-[11px]">SILVER</span>
+              <span className="font-bold text-slate-900">${(spotPrices.silverPerOz ?? 52).toFixed(2)}/oz</span>
+              <span className="text-slate-500 hidden sm:inline">(${silverGram.toFixed(2)}/g)</span>
             </div>
 
             {/* Platinum */}
             <div className="hidden md:flex items-center gap-1.5">
-              <span className="text-[10px] uppercase font-bold text-cyan-300 bg-cyan-950 px-1.5 py-0.5 rounded border border-cyan-800">
-                PLAT
-              </span>
-              <span className="text-white font-bold">${(spotPrices.platinumPerOz ?? 1545).toFixed(2)}/oz</span>
-              <span className="text-slate-400 hidden lg:inline">
-                (${platGram.toFixed(2)}/g)
-              </span>
+              <span className="font-sans font-bold text-slate-600 text-[11px]">PLATINUM</span>
+              <span className="font-bold text-slate-900">${(spotPrices.platinumPerOz ?? 1545).toFixed(2)}/oz</span>
+              <span className="text-slate-500 hidden lg:inline">(${platGram.toFixed(2)}/g)</span>
             </div>
 
             {/* Brass */}
             <div className="hidden xl:flex items-center gap-1.5">
-              <span className="text-[10px] uppercase font-bold text-amber-600 bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-800/40">
-                BRASS
-              </span>
-              <span className="text-slate-300 font-bold">${(spotPrices.brassPerGram ?? 0.08).toFixed(2)}/g</span>
+              <span className="font-sans font-bold text-slate-500 text-[11px]">BRASS</span>
+              <span className="font-bold text-slate-900">${(spotPrices.brassPerGram ?? 0.08).toFixed(2)}/g</span>
             </div>
           </div>
         ) : (
-          <div className="flex flex-wrap items-center gap-3 sm:gap-5 font-mono text-xs">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-6 font-mono text-xs tabular-nums">
             {/* Natural Diamond */}
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] uppercase font-bold text-cyan-300 bg-cyan-950 px-1.5 py-0.5 rounded border border-cyan-800">
-                NAT DIAMOND
-              </span>
-              <span className="text-white font-bold">
-                ${spotPrices.naturalDiamondPerCarat ?? 420}/ct
-              </span>
-              <span className="text-slate-400 hidden md:inline">
+              <span className="font-sans font-bold text-cyan-800 text-[11px]">NAT DIAMOND</span>
+              <span className="font-bold text-slate-900">${spotPrices.naturalDiamondPerCarat ?? 420}/ct</span>
+              <span className="text-slate-500 hidden md:inline">
                 (~${Math.round((spotPrices.naturalDiamondPerCarat ?? 420) / 12)}/stone)
               </span>
             </div>
 
             {/* Lab-Grown */}
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] uppercase font-bold text-emerald-300 bg-emerald-950 px-1.5 py-0.5 rounded border border-emerald-800">
-                LAB GROWN
-              </span>
-              <span className="text-white font-bold">
-                ${spotPrices.labDiamondPerCarat ?? 110}/ct
-              </span>
-              <span className="text-slate-400 hidden md:inline">
+              <span className="font-sans font-bold text-emerald-800 text-[11px]">LAB GROWN</span>
+              <span className="font-bold text-slate-900">${spotPrices.labDiamondPerCarat ?? 110}/ct</span>
+              <span className="text-slate-500 hidden md:inline">
                 (~${((spotPrices.labDiamondPerCarat ?? 110) / 10).toFixed(1)}/stone)
               </span>
             </div>
 
             {/* Moissanite */}
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] uppercase font-bold text-violet-300 bg-violet-950 px-1.5 py-0.5 rounded border border-violet-800">
-                MOISSANITE
-              </span>
-              <span className="text-white font-bold">
-                ${spotPrices.moissanitePerCarat ?? 25}/ct
-              </span>
+              <span className="font-sans font-bold text-violet-800 text-[11px]">MOISSANITE</span>
+              <span className="font-bold text-slate-900">${spotPrices.moissanitePerCarat ?? 25}/ct</span>
             </div>
 
-            {/* CZ */}
+            {/* 5A CZ */}
             <div className="hidden sm:flex items-center gap-1.5">
-              <span className="text-[10px] uppercase font-bold text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
-                5A CZ
-              </span>
-              <span className="text-white font-bold">
-                ${(spotPrices.czPerPiece ?? 0.07).toFixed(2)}/pc
-              </span>
+              <span className="font-sans font-bold text-slate-600 text-[11px]">5A CZ</span>
+              <span className="font-bold text-slate-900">${(spotPrices.czPerPiece ?? 0.07).toFixed(2)}/pc</span>
             </div>
           </div>
         )}
 
-        {/* Spot controls */}
-        <div className="flex items-center gap-2.5 text-slate-400 text-[11px]">
+        {/* Right: Actions */}
+        <div className="flex items-center gap-2 text-slate-600 text-[11px]">
           <span className="hidden sm:inline text-slate-400">
             {spotPrices.lastUpdated}
           </span>
@@ -265,43 +225,43 @@ export const SpotPriceBar: React.FC<Props> = ({ spotPrices, onUpdateSpotPrices }
             type="button"
             onClick={handleSyncLive}
             disabled={isSyncing}
-            className="flex items-center gap-1 text-slate-300 hover:text-amber-300 transition-colors disabled:opacity-50 px-2 py-1 rounded hover:bg-slate-800"
-            title="Refresh Live Global Spot Feed for Metals and Stones"
+            className="flex items-center gap-1 text-slate-700 hover:text-slate-900 font-semibold px-2 py-1 rounded-md hover:bg-white transition-colors disabled:opacity-50"
+            title="Refresh Live Global Spot Feed"
           >
-            <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin text-amber-400' : ''}`} />
-            <span>{isSyncing ? 'Pulling...' : 'Sync Market'}</span>
+            <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin text-amber-600' : ''}`} />
+            <span>{isSyncing ? 'Pulling...' : 'Sync Feed'}</span>
           </button>
 
           <button
             type="button"
             onClick={() => setIsEditing(!isEditing)}
-            className="flex items-center gap-1 text-amber-400 hover:text-amber-300 transition-colors px-2 py-1 rounded hover:bg-slate-800 font-semibold"
+            className="flex items-center gap-1 text-amber-800 hover:text-amber-950 font-bold px-2 py-1 rounded-md hover:bg-white transition-colors"
           >
-            <Edit3 className="w-3 h-3" />
-            <span>Spot Sheet</span>
+            <SlidersHorizontal className="w-3 h-3" />
+            <span>Refiner Sheet</span>
           </button>
         </div>
       </div>
 
-      {/* Editing Drawer / Modal Inline */}
+      {/* Editing Drawer Inline */}
       {isEditing && (
-        <div className="mt-3 p-4 bg-slate-950 rounded-2xl border border-slate-700 shadow-xl space-y-3">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-            <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">
-              Refinery &amp; Gem Market Price Sheet Override:
+        <div className="mt-3 p-4 bg-white rounded-2xl border border-slate-200 shadow-md space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <span className="text-xs font-bold text-slate-900 tracking-tight">
+              Workshop Refiner Sheet &amp; Benchmark Overrides
             </span>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setIsEditing(false)}
-                className="px-2.5 py-1 text-xs text-slate-400 hover:text-white"
+                className="px-3 py-1 text-xs text-slate-500 hover:text-slate-800"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleManualSave}
-                className="px-3 py-1 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg flex items-center gap-1 shadow-sm"
+                className="px-3.5 py-1 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-amber-300 rounded-lg flex items-center gap-1 shadow-xs transition-colors"
               >
                 <Check className="w-3 h-3" />
                 <span>Apply Sheet</span>
@@ -311,101 +271,101 @@ export const SpotPriceBar: React.FC<Props> = ({ spotPrices, onUpdateSpotPrices }
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
             {/* Precious Metals */}
-            <div className="space-y-2 p-2.5 bg-slate-900 rounded-xl border border-slate-800">
-              <span className="text-[11px] font-bold text-amber-400 block">Precious Metals ($/oz):</span>
+            <div className="space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+              <span className="text-[11px] font-bold text-slate-800 block">Precious Metals ($/oz):</span>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-slate-400 text-[11px]">Gold:</span>
+                <span className="text-slate-500 text-[11px]">Gold Spot:</span>
                 <input
                   type="number"
                   step="0.5"
                   value={goldVal ?? ''}
                   onChange={(e) => setGoldVal(e.target.value)}
-                  className="w-24 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-amber-300 font-mono text-right"
+                  className="w-24 bg-white border border-slate-300 rounded-lg px-2 py-1 text-amber-700 font-mono text-right font-bold"
                 />
               </div>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-slate-400 text-[11px]">Silver:</span>
+                <span className="text-slate-500 text-[11px]">Silver Spot:</span>
                 <input
                   type="number"
                   step="0.1"
                   value={silverVal ?? ''}
                   onChange={(e) => setSilverVal(e.target.value)}
-                  className="w-24 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-slate-200 font-mono text-right"
+                  className="w-24 bg-white border border-slate-300 rounded-lg px-2 py-1 text-slate-800 font-mono text-right font-bold"
                 />
               </div>
             </div>
 
             {/* Platinum & Brass */}
-            <div className="space-y-2 p-2.5 bg-slate-900 rounded-xl border border-slate-800">
-              <span className="text-[11px] font-bold text-cyan-400 block">Platinum &amp; Brass:</span>
+            <div className="space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+              <span className="text-[11px] font-bold text-slate-800 block">Platinum &amp; Brass:</span>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-slate-400 text-[11px]">Platinum ($/oz):</span>
+                <span className="text-slate-500 text-[11px]">Platinum ($/oz):</span>
                 <input
                   type="number"
                   step="1.0"
                   value={platVal ?? ''}
                   onChange={(e) => setPlatVal(e.target.value)}
-                  className="w-24 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-slate-200 font-mono text-right"
+                  className="w-24 bg-white border border-slate-300 rounded-lg px-2 py-1 text-slate-800 font-mono text-right font-bold"
                 />
               </div>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-slate-400 text-[11px]">Brass ($/g):</span>
+                <span className="text-slate-500 text-[11px]">Brass ($/g):</span>
                 <input
                   type="number"
                   step="0.01"
                   value={brassVal ?? ''}
                   onChange={(e) => setBrassVal(e.target.value)}
-                  className="w-24 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-slate-200 font-mono text-right"
+                  className="w-24 bg-white border border-slate-300 rounded-lg px-2 py-1 text-slate-800 font-mono text-right font-bold"
                 />
               </div>
             </div>
 
             {/* Diamonds Benchmark */}
-            <div className="space-y-2 p-2.5 bg-slate-900 rounded-xl border border-slate-800">
-              <span className="text-[11px] font-bold text-cyan-300 block">Diamonds Benchmark ($/ct):</span>
+            <div className="space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+              <span className="text-[11px] font-bold text-slate-800 block">Diamonds Benchmark ($/ct):</span>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-slate-400 text-[11px]">Natural Earth:</span>
+                <span className="text-slate-500 text-[11px]">Natural Earth:</span>
                 <input
                   type="number"
                   step="5"
                   value={natDiaVal ?? ''}
                   onChange={(e) => setNatDiaVal(e.target.value)}
-                  className="w-24 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-cyan-300 font-mono text-right"
+                  className="w-24 bg-white border border-slate-300 rounded-lg px-2 py-1 text-cyan-700 font-mono text-right font-bold"
                 />
               </div>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-slate-400 text-[11px]">Lab-Grown:</span>
+                <span className="text-slate-500 text-[11px]">Lab-Grown:</span>
                 <input
                   type="number"
                   step="5"
                   value={labDiaVal ?? ''}
                   onChange={(e) => setLabDiaVal(e.target.value)}
-                  className="w-24 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-emerald-300 font-mono text-right"
+                  className="w-24 bg-white border border-slate-300 rounded-lg px-2 py-1 text-emerald-700 font-mono text-right font-bold"
                 />
               </div>
             </div>
 
             {/* Moissanite & CZ */}
-            <div className="space-y-2 p-2.5 bg-slate-900 rounded-xl border border-slate-800">
-              <span className="text-[11px] font-bold text-violet-300 block">Moissanite &amp; CZ:</span>
+            <div className="space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+              <span className="text-[11px] font-bold text-slate-800 block">Moissanite &amp; CZ:</span>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-slate-400 text-[11px]">Moissanite ($/ct):</span>
+                <span className="text-slate-500 text-[11px]">Moissanite ($/ct):</span>
                 <input
                   type="number"
                   step="1"
                   value={moissVal ?? ''}
                   onChange={(e) => setMoissVal(e.target.value)}
-                  className="w-24 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-violet-300 font-mono text-right"
+                  className="w-24 bg-white border border-slate-300 rounded-lg px-2 py-1 text-violet-700 font-mono text-right font-bold"
                 />
               </div>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-slate-400 text-[11px]">5A CZ ($/pc):</span>
+                <span className="text-slate-500 text-[11px]">5A CZ ($/pc):</span>
                 <input
                   type="number"
                   step="0.01"
                   value={czVal ?? ''}
                   onChange={(e) => setCzVal(e.target.value)}
-                  className="w-24 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-slate-200 font-mono text-right"
+                  className="w-24 bg-white border border-slate-300 rounded-lg px-2 py-1 text-slate-800 font-mono text-right font-bold"
                 />
               </div>
             </div>
