@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import type { Dims } from './types';
+import { dimsOk } from './pricing';
 
 type CadView = 'front' | 'side' | 'top' | 'angled';
 const VIEWS: [CadView, string, string][] = [
@@ -19,6 +20,11 @@ function detectWebGL(): boolean {
   }
 }
 const WEBGL_OK = detectWebGL();
+
+// Read a design token so the canvas follows light and dark themes.
+function css(name: string, fallback: string): string {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+}
 
 // Exact outline: an ellipse of width × height, extruded to depth. Bounding box = W × H × D.
 function cadGeometry(d: Dims): THREE.ExtrudeGeometry {
@@ -54,10 +60,10 @@ function drawDimLines(
   W: number, H: number, px: number,
 ) {
   const cx = W / 2, cy = H / 2, hw = (hx * px) / 2, hh = (vy * px) / 2;
-  ctx.strokeStyle = '#6E665B';
-  ctx.fillStyle = '#1C1A17';
+  ctx.strokeStyle = css('--text-3', '#8D887E');
+  ctx.fillStyle = css('--text', '#1A1917');
   ctx.lineWidth = 1.2;
-  ctx.font = '600 15px Inter, sans-serif';
+  ctx.font = '600 15px Inter, system-ui, sans-serif';
   const yb = cy + hh + 26;
   ctx.beginPath(); ctx.moveTo(cx - hw, yb); ctx.lineTo(cx + hw, yb); ctx.stroke();
   ctx.textAlign = 'center';
@@ -72,11 +78,20 @@ export function CadViews({ dims }: { dims: Dims }) {
   const canvases = useRef<Partial<Record<CadView, HTMLCanvasElement | null>>>({});
   const { w, h, d } = dims;
 
+  const valid = dimsOk(dims);
+  const [failed, setFailed] = useState(false);
+
   useEffect(() => {
-    if (!WEBGL_OK) return;
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    if (!WEBGL_OK || !dimsOk({ w, h, d })) return;
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    } catch {
+      setFailed(true); // e.g. the GPU refused a context; show the size instead of crashing
+      return;
+    }
     const geo = cadGeometry({ w, h, d });
-    const mat = new THREE.MeshStandardMaterial({ color: 0xc9a227, metalness: 0.85, roughness: 0.28 });
+    const mat = new THREE.MeshStandardMaterial({ color: 0xc9a227, metalness: 0.55, roughness: 0.35 });
     const lines: Partial<Record<CadView, [number, number, string, string]>> = {
       front: [w, h, `Width ${w} mm`, `Height ${h} mm`],
       side: [d, h, `Depth ${d} mm`, `Height ${h} mm`],
@@ -89,8 +104,8 @@ export function CadViews({ dims }: { dims: Dims }) {
       const W = c.width, H = c.height;
       const scene = new THREE.Scene();
       scene.add(new THREE.Mesh(geo, mat));
-      scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-      const key = new THREE.DirectionalLight(0xffffff, 0.9);
+      scene.add(new THREE.HemisphereLight(0xfff6e0, 0x6b5a34, 1.6));
+      const key = new THREE.DirectionalLight(0xffffff, 2.2);
       key.position.set(1, 1.5, 2);
       scene.add(key);
       const { cam, span } = cadCamera(view, { w, h, d }, W / H);
@@ -98,7 +113,7 @@ export function CadViews({ dims }: { dims: Dims }) {
       renderer.render(scene, cam);
       const ctx = c.getContext('2d');
       if (!ctx) return;
-      ctx.fillStyle = '#FBF8F1';
+      ctx.fillStyle = css('--surface-2', '#F1EFEA');
       ctx.fillRect(0, 0, W, H);
       ctx.drawImage(renderer.domElement, 0, 0, W, H);
       const line = lines[view];
@@ -116,17 +131,18 @@ export function CadViews({ dims }: { dims: Dims }) {
     };
   }, [w, h, d]);
 
+  if (!valid) return <div className="card muted">Enter a valid size to see the CAD views.</div>;
+
   return (
-    <div className="cadgrid">
+    <div className="cad-grid">
       {VIEWS.map(([view, name, cap]) => (
-        <div className="cadcell" key={view}>
+        <div className="cad-cell" key={view}>
           <div className="hd"><span>{name}</span><span>{cap}</span></div>
-          {WEBGL_OK ? (
+          {WEBGL_OK && !failed ? (
             <canvas
               ref={el => { canvases.current[view] = el; }}
               width={640}
               height={400}
-              style={{ width: '100%', height: 'auto', display: 'block', borderRadius: 10 }}
             />
           ) : (
             <div className="muted" style={{ padding: '48px 12px', textAlign: 'center' }}>

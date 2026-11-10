@@ -1,16 +1,26 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { STEP_NAMES } from './order/data';
 import { useOrder } from './order/state';
 import { CustomerStep, DesignStep, EstimateStep, CadStep, ConfirmStep } from './order/steps';
 import { RatesModal } from './order/shared';
+import { useRates } from './order/rates';
+import { useOutbox, useOutboxSync } from './order/orders';
+import { IconCheck, IconCloud, IconTrend } from './order/icons';
 
 const STEPS = [CustomerStep, DesignStep, EstimateStep, CadStep, ConfirmStep];
 
 export default function App() {
   const { state: s, dispatch, savedAt } = useOrder();
+  const { status: rateStatus } = useRates(true); // keeps prices live and re-prices on change
+  useOutboxSync(); // keeps sending queued orders to the database
+  const outbox = useOutbox();
+  const unsynced = outbox.filter(i => i.status !== 'saved');
+  const rejected = unsynced.some(i => i.status === 'rejected');
   const [ratesOpen, setRatesOpen] = useState(false);
   const Step = STEPS[s.step];
   const title = s.cust.ornament.trim() || 'New custom order';
+  const openRates = useCallback(() => setRatesOpen(true), []);
+  const closeRates = useCallback(() => setRatesOpen(false), []);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -18,38 +28,71 @@ export default function App() {
 
   return (
     <div className="app">
-      <header>
-        <div className="brand">
-          <div className="mark">GJ</div>
-          <div style={{ minWidth: 0 }}>
-            <div className="title">{title}</div>
-            <div className="sub">
-              Order #{s.orderNo} · {s.cust.name.trim() || 'Customer'}
-              {savedAt && <> · <span style={{ color: 'var(--faint)' }}>Draft saved {savedAt}</span></>}
+      <header className="topbar">
+        <div className="topbar-inner">
+          <div className="brand">
+            <div className="logo" aria-hidden="true">GJ</div>
+            <div className="brand-text">
+              <div className="brand-title">{title}</div>
+              <div className="brand-meta">
+                <span className="num">#{s.orderNo}</span>
+                <span className="dot-sep" />
+                <span>{s.cust.name.trim() || 'No customer yet'}</span>
+                {savedAt && <span className="saved"><span className="dot-sep" /><IconCloud size={14} />Saved {savedAt}</span>}
+              </div>
             </div>
           </div>
+
+          <nav aria-label="Order progress">
+            <ol className="stepper">
+              {STEP_NAMES.map((name, i) => {
+                const done = i < s.step;
+                const cls = i === s.step ? 'current' : done ? 'done' : '';
+                return (
+                  <li key={name}>
+                    {i > 0 && <span className={`line ${i <= s.step ? 'done' : ''}`} aria-hidden="true" />}
+                    <button
+                      type="button"
+                      className={`step ${cls}`}
+                      disabled={!done || s.sent}
+                      aria-current={i === s.step ? 'step' : undefined}
+                      title={done ? `Back to ${name}` : name}
+                      onClick={() => dispatch({ type: 'go', step: i })}
+                    >
+                      <span className="bullet">{done ? <IconCheck size={14} strokeWidth={3} /> : i + 1}</span>
+                      <span className="s-name">{name}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+          </nav>
+
+          {unsynced.length > 0 && (
+            <span
+              className={`badge ${rejected ? 'bad' : 'warn'}`}
+              title={unsynced.map(i => `#${i.orderNo}: ${i.error ?? 'saving…'}`).join('\n')}
+              role="status"
+            >
+              {unsynced.length} {unsynced.length === 1 ? 'order' : 'orders'} not saved
+            </span>
+          )}
+
+          <button type="button" className="btn ghost" onClick={openRates} aria-label={`Show metal rates (${rateStatus})`}>
+            <IconTrend size={18} /><span className="rates-label">Rates</span>
+            <span className={`rate-dot ${rateStatus}`} aria-hidden="true" />
+          </button>
+
+          <div className="progress" aria-hidden="true">
+            <div className="p-label"><span>Step {s.step + 1} of {STEP_NAMES.length}</span><span>{STEP_NAMES[s.step]}</span></div>
+            <div className="p-track">{STEP_NAMES.map((n, i) => <i key={n} className={i <= s.step ? 'on' : ''} />)}</div>
+          </div>
         </div>
-        <nav className="stepper">
-          {STEP_NAMES.map((name, i) => {
-            const cls = i === s.step ? 'on' : i < s.step ? 'done' : '';
-            return (
-              <span key={name} style={{ display: 'contents' }}>
-                <span className={`st ${cls}`}>
-                  <span className="dot">{i < s.step ? '✓' : i + 1}</span>
-                  <span>{name}</span>
-                </span>
-                {i < STEP_NAMES.length - 1 && <span className="sep" />}
-              </span>
-            );
-          })}
-        </nav>
       </header>
 
-      <main>
-        <Step s={s} dispatch={dispatch} onShowRates={() => setRatesOpen(true)} />
-      </main>
+      <Step s={s} dispatch={dispatch} onShowRates={openRates} />
 
-      {ratesOpen && <RatesModal onClose={() => setRatesOpen(false)} />}
+      {ratesOpen && <RatesModal onClose={closeRates} />}
     </div>
   );
 }
