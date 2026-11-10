@@ -14,3 +14,13 @@ export const parseISO = (v: string): Date => {
   const [y, m, d] = v.split('-').map(Number);
   return new Date(y, m - 1, d);
 };
+
+/** Format phone number as user types: (555) 123-4567 */
+export function formatPhone(input: string): string {
+  const digits = input.replace(/\D/g, '').slice(0, 15); // max 15 digits
+
+  if (digits.length === 0) return '';
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}

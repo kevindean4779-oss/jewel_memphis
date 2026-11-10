@@ -7,7 +7,7 @@ import { CadViews } from './CadViews';
 import { missingForSend, newOrderNo, orderSpot, uuid } from './state';
 import { buildOrderRecord, retry, submitOrder, useOutbox } from './orders';
 import {
-  ActionBar, Card, Choices, Kv, MetalChips, NumField, Page, Proportions, StoneChips, TAX_SHORT, Total, type StepProps,
+  ActionBar, Card, Choices, EmailField, Kv, MetalChips, NumField, Page, PhoneField, Proportions, StoneChips, TAX_SHORT, Total, type StepProps,
 } from './shared';
 import {
   IconAlert, IconArrowLeft, IconArrowRight, IconCamera, IconCheck, IconCube, IconInfo, IconPlus, IconRotate, IconRuler, IconSend, IconX,
@@ -78,14 +78,8 @@ export function CustomerStep({ s, dispatch }: StepProps) {
                 <input className="input" autoComplete="name" maxLength={120} value={c.name} placeholder="e.g. Meera Sharma" onChange={set('name')} onBlur={blur('name')} {...aria('name')} />
                 {err('name')}
               </label>
-              <label className="field"><span className="field-label">Phone<span className="req">*</span></span>
-                <input className="input" type="tel" inputMode="tel" autoComplete="tel" maxLength={30} value={c.phone} placeholder="(555) 000-0000" onChange={set('phone')} onBlur={blur('phone')} {...aria('phone')} />
-                {err('phone')}
-              </label>
-              <label className="field"><span className="field-label">Email<span className="opt">Optional</span></span>
-                <input className="input" type="email" autoComplete="email" maxLength={254} value={c.email} placeholder="name@example.com" onChange={set('email')} onBlur={blur('email')} {...aria('email')} />
-                {err('email')}
-              </label>
+              <PhoneField label="Phone" value={c.phone} onChange={v => dispatch({ type: 'cust', key: 'phone', value: v })} />
+              <EmailField label="Email" value={c.email} onChange={v => dispatch({ type: 'cust', key: 'email', value: v })} />
             </div>
           </Card>
           <Card title="Ornament">
@@ -468,6 +462,7 @@ function SyncNotice({ id }: { id: string }) {
 
 export function ConfirmStep({ s, dispatch }: StepProps) {
   const { spot: liveSpot, status: rateStatus } = useRates();
+  const [sending, setSending] = useState(false);
   const o = ok(s);
   const c = s.cust;
   const ready = readyDate(s.metal, s.stone, s.mode);
@@ -479,12 +474,17 @@ export function ConfirmStep({ s, dispatch }: StepProps) {
   const missing = missingForSend(s);
   const sampleRates = s.lockedSpot ? isSampleSpot(s.lockedSpot) : isSampleSpot(liveSpot);
 
-  const send = () => {
+  const send = async () => {
     if (missing.length) return;
-    const at = new Date().toISOString();
-    // Queue the row first, then mark the order sent; the outbox keeps it until Supabase confirms.
-    submitOrder(buildOrderRecord({ ...s, sentAt: at }));
-    dispatch({ type: 'send', at });
+    setSending(true);
+    try {
+      const at = new Date().toISOString();
+      // Queue the row first, then mark the order sent; the outbox keeps it until Supabase confirms.
+      submitOrder(buildOrderRecord({ ...s, sentAt: at }));
+      dispatch({ type: 'send', at });
+    } finally {
+      setSending(false);
+    }
   };
 
   const checkItem = (key: keyof typeof s.checks, text: ReactNode, disabled = false) => (
@@ -592,7 +592,9 @@ export function ConfirmStep({ s, dispatch }: StepProps) {
           : (
             <>
               <Back onClick={() => dispatch({ type: 'go', step: 3 })} />
-              <button className="btn primary lg" disabled={missing.length > 0} onClick={send}><IconSend />Send to workshop</button>
+              <button className="btn primary lg" disabled={missing.length > 0 || sending} onClick={send}>
+                {sending ? <><IconRotate /><span>Sending...</span></> : <><IconSend />Send to workshop</>}
+              </button>
             </>
           )}
       </ActionBar>
