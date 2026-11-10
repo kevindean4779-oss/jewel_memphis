@@ -1,5 +1,12 @@
-import { CAD, KARATS, LEAD, MAKING, METALS, RANGE, RATES, STONES, STONE_KEYS, STORE, TODAY, TROY_OZ_GRAMS, type Metal, type Mode, type StoneKey } from './data';
+import { CAD, KARATS, LEAD, METALS, STONES, STONE_KEYS, type Metal, type Mode, type StoneKey } from './data';
+import type { OwnerConfig } from './config';
+import type { Rates } from './rates';
 import type { Customer, Dims } from './types';
+
+export interface Market {
+  cfg: OwnerConfig;
+  rates: Rates;
+}
 
 export interface Price {
   grams: number;
@@ -23,10 +30,16 @@ export interface Option extends Price {
   stoneKey: StoneKey;
 }
 
-export function metalRate(m: Metal): number {
-  return m === 'PT950'
-    ? (RATES.platinumOz / TROY_OZ_GRAMS) * KARATS.PT950.purity
-    : RATES.gold24Gram * KARATS[m].purity;
+// Tolerance before CAD is generated: photo estimates are looser than dimensions.
+const RANGE = { picture: 0.1, dims: 0.15 };
+
+// Price per gram of this karat/alloy, from the spot rate of its metal family.
+export function gramRate(mk: Market, m: Metal): number {
+  const k = KARATS[m];
+  const base = k.family === 'gold' ? mk.rates.gold24Gram
+    : k.family === 'platinum' ? mk.rates.platinumGram
+      : mk.rates.silverGram;
+  return base * k.purity;
 }
 
 export function leadDays(m: Metal, s: StoneKey, mode: Mode): number {
@@ -36,8 +49,8 @@ export function leadDays(m: Metal, s: StoneKey, mode: Mode): number {
     + (s === 'naturalP' ? LEAD.premiumStone : 0);
 }
 
-export function readyDate(m: Metal, s: StoneKey, mode: Mode): Date {
-  return new Date(TODAY.getFullYear(), TODAY.getMonth(), TODAY.getDate() + leadDays(m, s, mode));
+export function readyDate(m: Metal, s: StoneKey, mode: Mode, today = new Date()): Date {
+  return new Date(today.getFullYear(), today.getMonth(), today.getDate() + leadDays(m, s, mode));
 }
 
 export function cadVolumeCm3(d: Dims): number {
@@ -45,29 +58,30 @@ export function cadVolumeCm3(d: Dims): number {
 }
 
 // Volume-based price. Until CAD exists, the metal weight carries a tolerance band.
-export function price(d: Dims, m: Metal, s: StoneKey, mode: Mode, exact: boolean): Price {
+export function price(mk: Market, d: Dims, m: Metal, s: StoneKey, mode: Mode, exact: boolean): Price {
   const grams = cadVolumeCm3(d) * KARATS[m].density;
-  const rate = metalRate(m);
+  const rate = gramRate(mk, m);
   const metal = grams * rate;
-  const stone = STONES[s].perCt * STONES[s].carat;
-  const subtotal = metal + stone + MAKING;
-  const tax = subtotal * STORE.taxRate;
+  const stone = mk.cfg.stonePerCt[s] * STONES[s].carat;
+  const making = mk.cfg.makingFee;
+  const subtotal = metal + stone + making;
+  const tax = subtotal * mk.cfg.taxRate;
   const total = subtotal + tax;
   const tol = exact ? 0 : RANGE[mode];
-  const low = (metal * (1 - tol) + stone + MAKING) * (1 + STORE.taxRate);
-  const high = (metal * (1 + tol) + stone + MAKING) * (1 + STORE.taxRate);
+  const low = (metal * (1 - tol) + stone + making) * (1 + mk.cfg.taxRate);
+  const high = (metal * (1 + tol) + stone + making) * (1 + mk.cfg.taxRate);
   return {
-    grams, rate, metal, stone, making: MAKING, subtotal, tax, total, low, high, tol,
+    grams, rate, metal, stone, making, subtotal, tax, total, low, high, tol,
     shareMetal: (metal / subtotal) * 100,
     shareStone: (stone / subtotal) * 100,
-    shareMaking: (MAKING / subtotal) * 100,
+    shareMaking: (making / subtotal) * 100,
   };
 }
 
-export function allOptions(d: Dims, mode: Mode, exact: boolean): Option[] {
+export function allOptions(mk: Market, d: Dims, mode: Mode, exact: boolean): Option[] {
   const out: Option[] = [];
   METALS.forEach(m => STONE_KEYS.forEach(s =>
-    out.push({ ...price(d, m, s, mode, exact), metalKey: m, stoneKey: s })));
+    out.push({ ...price(mk, d, m, s, mode, exact), metalKey: m, stoneKey: s })));
   return out.sort((a, b) => a.total - b.total);
 }
 

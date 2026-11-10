@@ -2,13 +2,19 @@ import { useEffect, useState } from 'react';
 import { STEP_NAMES } from './order/data';
 import { useOrder } from './order/state';
 import { CustomerStep, DesignStep, EstimateStep, CadStep, ConfirmStep } from './order/steps';
-import { RatesModal } from './order/shared';
+import { RatesModal, SettingsModal, OrdersModal } from './order/modals';
+import { MarketProvider, useMarket } from './order/market';
+import { WorkshopTicket } from './order/ticket';
+import { newOrderNo } from './order/state';
+import { supabase } from './order/db';
 
 const STEPS = [CustomerStep, DesignStep, EstimateStep, CadStep, ConfirmStep];
+type Modal = 'rates' | 'settings' | 'orders' | null;
 
-export default function App() {
-  const { state: s, dispatch, savedAt } = useOrder();
-  const [ratesOpen, setRatesOpen] = useState(false);
+function Counter() {
+  const { mk } = useMarket();
+  const { state: s, dispatch, savedAt, syncError } = useOrder();
+  const [modal, setModal] = useState<Modal>(null);
   const Step = STEPS[s.step];
   const title = s.cust.ornament.trim() || 'New custom order';
 
@@ -26,6 +32,7 @@ export default function App() {
             <div className="sub">
               Order #{s.orderNo} · {s.cust.name.trim() || 'Customer'}
               {savedAt && <> · <span style={{ color: 'var(--faint)' }}>Draft saved {savedAt}</span></>}
+              {supabase && syncError && <> · <span style={{ color: 'var(--bad)' }}>{syncError}</span></>}
             </div>
           </div>
         </div>
@@ -45,11 +52,37 @@ export default function App() {
         </nav>
       </header>
 
+      <div className="toolbar">
+        <button className="btn" onClick={() => setModal('orders')}>Orders</button>
+        <button className="btn" onClick={() => setModal('rates')}>
+          Rates <span className="faint">{mk.rates.source === 'live' ? 'live' : 'owner'}</span>
+        </button>
+        <button className="btn" onClick={() => setModal('settings')}>Settings</button>
+        <button className="btn" onClick={() => dispatch({ type: 'newOrder', orderNo: newOrderNo() })}>New order</button>
+      </div>
+
       <main>
-        <Step s={s} dispatch={dispatch} onShowRates={() => setRatesOpen(true)} />
+        <Step s={s} dispatch={dispatch} onShowRates={() => setModal('rates')} />
       </main>
 
-      {ratesOpen && <RatesModal onClose={() => setRatesOpen(false)} />}
+      <WorkshopTicket s={s} />
+
+      {modal === 'rates' && <RatesModal mk={mk} onClose={() => setModal(null)} />}
+      {modal === 'settings' && <SettingsModal onClose={() => setModal(null)} />}
+      {modal === 'orders' && (
+        <OrdersModal
+          onOpen={order => { dispatch({ type: 'load', order }); setModal(null); }}
+          onClose={() => setModal(null)}
+        />
+      )}
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <MarketProvider>
+      <Counter />
+    </MarketProvider>
   );
 }

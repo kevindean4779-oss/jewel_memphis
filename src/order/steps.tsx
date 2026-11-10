@@ -1,17 +1,20 @@
 import type { ChangeEvent } from 'react';
-import { KARATS, METHODS, OCCASIONS, RATES, STONES, STORE, type Mode } from './data';
-import { allCadOk, allOptions, cadRules, custOk, dimsOk, price, readyDate, type Option } from './pricing';
+import { KARATS, METHODS, OCCASIONS, STONES, type Mode } from './data';
+import { allCadOk, allOptions, cadRules, custOk, dimsOk, price, readyDate, type Market, type Option } from './pricing';
+import { taxLabel } from './config';
+import { useMarket } from './market';
 import { fmtDate, isoOf, money, parseISO } from './format';
 import { CadViews } from './CadViews';
 import { newOrderNo } from './state';
 import { Kv, MetalChips, NumField, Proportions, StoneChips, TAX_SHORT, type StepProps } from './shared';
 
-function ok(s: StepProps['s']) {
-  return price(s.dims, s.metal, s.stone, s.mode, s.exact);
+function priceOf(mk: Market, s: StepProps['s']) {
+  return price(mk, s.dims, s.metal, s.stone, s.mode, s.exact);
 }
 
 /* ============================ STEP 1: CUSTOMER ============================ */
 export function CustomerStep({ s, dispatch }: StepProps) {
+  const { mk } = useMarket();
   const c = s.cust;
   const ready = readyDate(s.metal, s.stone, s.mode);
   const set = (key: keyof typeof c) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -86,6 +89,7 @@ export function CustomerStep({ s, dispatch }: StepProps) {
 
 /* ============================ STEP 2: DESIGN ============================ */
 export function DesignStep({ s, dispatch }: StepProps) {
+  const { mk } = useMarket();
   const back = <button className="btn ghost" onClick={() => dispatch({ type: 'go', step: 0 })}>← Back</button>;
 
   if (s.mode === 'picture') {
@@ -124,7 +128,7 @@ export function DesignStep({ s, dispatch }: StepProps) {
     );
   }
 
-  const p = ok(s);
+  const p = priceOf(mk, s);
   return (
     <>
       <div className="grid2">
@@ -167,9 +171,10 @@ function FitPill({ o, b }: { o: Option; b: number | null }) {
 }
 
 export function EstimateStep({ s, dispatch, onShowRates }: StepProps & { onShowRates: () => void }) {
-  const cur = ok(s);
+  const { mk } = useMarket();
+  const cur = priceOf(mk, s);
   const isOrig = s.orig !== null && s.orig.metal === s.metal && s.orig.stone === s.stone;
-  const all = allOptions(s.dims, s.mode, s.exact);
+  const all = allOptions(mk, s.dims, s.mode, s.exact);
   const b = s.budget;
   const mayFit = b === null ? [] : all.filter(o => o.low <= b);
   const sure = b === null ? [] : all.filter(o => o.high <= b);
@@ -219,13 +224,13 @@ export function EstimateStep({ s, dispatch, onShowRates }: StepProps & { onShowR
             <Kv label={`${STONES[s.stone].name}, 0.20 ct`} value={money(cur.stone)} />
             <Kv label="Making and setting" value={money(cur.making)} />
             <Kv label="Subtotal" value={money(cur.subtotal)} cls="sub2" />
-            <Kv label={STORE.taxLabel} value={money(cur.tax)} cls="sub2" />
+            <Kv label={taxLabel(mk.cfg)} value={money(cur.tax)} cls="sub2" />
             <div className="kv total">
               <span>Estimated price</span>
               <b>{money(cur.total)}</b>
             </div>
             <div className="actions">
-              <span className="faint">Live USA rates, {RATES.time}</span>
+              <span className="faint">{mk.rates.source === 'live' ? 'Live spot rates' : 'Owner rates'}, {mk.rates.time}</span>
               <button className="link" onClick={onShowRates}>Show live prices</button>
             </div>
             {!isOrig && <button className="link" style={{ alignSelf: 'flex-start' }} onClick={() => dispatch({ type: 'resetOriginal' })}>Reset to original design</button>}
@@ -327,7 +332,8 @@ export function EstimateStep({ s, dispatch, onShowRates }: StepProps & { onShowR
 
 /* ============================ STEP 4: CAD ============================ */
 export function CadStep({ s, dispatch }: StepProps) {
-  const p = ok(s);
+  const { mk } = useMarket();
+  const p = priceOf(mk, s);
   const rules = cadRules(s.dims);
   const allOk = allCadOk(s.dims);
   const banner = s.exact
@@ -373,7 +379,8 @@ export function CadStep({ s, dispatch }: StepProps) {
 
 /* ============================ STEP 5: CONFIRM ============================ */
 export function ConfirmStep({ s, dispatch }: StepProps) {
-  const o = ok(s);
+  const { mk } = useMarket();
+  const o = priceOf(mk, s);
   const c = s.cust;
   const ready = readyDate(s.metal, s.stone, s.mode);
   const needed = c.needed ? parseISO(c.needed) : null;
@@ -440,12 +447,12 @@ export function ConfirmStep({ s, dispatch }: StepProps) {
             <Kv label="Stones" value={money(o.stone)} />
             <Kv label="Making and setting" value={money(o.making)} />
             <Kv label="Subtotal" value={money(o.subtotal)} />
-            <Kv label={STORE.taxLabel} value={money(o.tax)} />
+            <Kv label={taxLabel(mk.cfg)} value={money(o.tax)} />
             <div className="kv total"><span>Total</span><b>{money(o.total)}</b></div>
             <div className="divider" />
             <div className="sec">Deposit <span className="hint">due before the workshop starts</span></div>
             <div className="chips">
-              {STORE.deposits.map(p => (
+              {mk.cfg.deposits.map(p => (
                 <button key={p} className={`chip ${s.deposit === p ? 'on' : ''}`} disabled={s.sent} onClick={() => dispatch({ type: 'deposit', value: p })}>{p}%</button>
               ))}
             </div>
@@ -471,6 +478,7 @@ export function ConfirmStep({ s, dispatch }: StepProps) {
               {checkItem('deposit', `Deposit of ${money(depositAmt)} collected`)}
             </div>
             <div className="grow" />
+            <button className="btn lg" onClick={() => window.print()}>Print workshop ticket</button>
             {s.sent
               ? <button className="btn dark lg" onClick={() => dispatch({ type: 'newOrder', orderNo: newOrderNo() })}>Start a new order</button>
               : (

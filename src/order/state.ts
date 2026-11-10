@@ -1,7 +1,9 @@
-import { useEffect, useReducer, useState } from 'react';
-import { DRAFT_KEY, STORE, type Metal, type StoneKey, type Mode } from './data';
-import { allCadOk, price } from './pricing';
+import { useEffect, useReducer, useRef, useState } from 'react';
+import { DRAFT_KEY, type Metal, type StoneKey, type Mode } from './data';
+import { DEFAULT_CONFIG } from './config';
+import { allCadOk } from './pricing';
 import { nowTime } from './format';
+import { saveOrderRemote, supabase } from './db';
 import type { CheckKey, Customer, Dims, OrderState } from './types';
 
 export type Action =
@@ -24,7 +26,12 @@ export type Action =
   | { type: 'deposit'; value: number }
   | { type: 'check'; key: CheckKey; on: boolean }
   | { type: 'send' }
-  | { type: 'newOrder'; orderNo: string };
+  | { type: 'newOrder'; orderNo: string }
+  | { type: 'load'; order: OrderState };
+
+export function newOrderNo(): string {
+  return 'CO-' + (2042 + Math.floor(Math.random() * 500));
+}
 
 export function blankOrder(orderNo: string): OrderState {
   return {
@@ -41,15 +48,11 @@ export function blankOrder(orderNo: string): OrderState {
     fitOnly: true,
     showBudget: false,
     exact: false,
-    deposit: STORE.defaultDeposit,
+    deposit: DEFAULT_CONFIG.defaultDeposit,
     checks: { details: false, design: false, price: false, deposit: false },
     sent: false,
     restored: false,
   };
-}
-
-export function newOrderNo(): string {
-  return 'CO-' + (2042 + Math.floor(Math.random() * 500));
 }
 
 export function reduce(s: OrderState, a: Action): OrderState {
@@ -79,11 +82,8 @@ export function reduce(s: OrderState, a: Action): OrderState {
       return { ...s, showBudget: false, budget: null };
     case 'fit':
       return { ...s, fitOnly: a.fitOnly };
-    case 'select': {
-      const o = price(s.dims, a.metal, a.stone, s.mode, s.exact);
-      if (s.budget !== null && o.low > s.budget) return s;
+    case 'select':
       return { ...s, metal: a.metal, stone: a.stone };
-    }
     case 'resetOriginal':
       return s.orig ? { ...s, metal: s.orig.metal, stone: s.orig.stone } : s;
     case 'continueToEstimate':
@@ -98,6 +98,8 @@ export function reduce(s: OrderState, a: Action): OrderState {
       return { ...s, sent: true };
     case 'newOrder':
       return blankOrder(a.orderNo);
+    case 'load':
+      return { ...a.order, restored: false };
   }
 }
 
@@ -107,11 +109,12 @@ function loadInitial(): OrderState {
     if (raw) {
       const saved = JSON.parse(raw) as Partial<OrderState> | null;
       if (saved && !saved.sent) {
+        const base = blankOrder(saved.orderNo ?? newOrderNo());
         return {
-          ...blankOrder(newOrderNo()),
+          ...base,
           ...saved,
-          cust: { ...blankOrder('').cust, ...saved.cust },
-          checks: { ...blankOrder('').checks, ...saved.checks },
+          cust: { ...base.cust, ...saved.cust },
+          checks: { ...base.checks, ...saved.checks },
           restored: true,
         } as OrderState;
       }
@@ -122,13 +125,15 @@ function loadInitial(): OrderState {
   return blankOrder(newOrderNo());
 }
 
-// Holds the order and autosaves the draft to this browser.
+// Holds the order. Autosaves the draft to this device, and syncs to Supabase when configured.
 export function useOrder() {
   const [state, dispatch] = useReducer(reduce, undefined, loadInitial);
   const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const timer = useRef<number | undefined>(undefined);
 
   useEffect(() => {
-    if (state.sent) return; // a sent order is not autosaved, as in the prototype
+    if (state.sent) return; // a sent order is not autosaved locally, as in the prototype
     try {
       localStorage.setItem(DRAFT_KEY, JSON.stringify(state));
       setSavedAt(nowTime());
@@ -137,5 +142,16 @@ export function useOrder() {
     }
   }, [state]);
 
-  return { state, dispatch, savedAt };
+  useEffect(() => {
+    if (!supabase) return;
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => {
+      saveOrderRemote(state)
+        .then(() => setSyncError(null))
+        .catch(() => setSyncError('Not synced. Changes are saved on this device.'));
+    }, 1200);
+    return () => window.clearTimeout(timer.current);
+  }, [state]);
+
+  return { state, dispatch, savedAt, syncError };
 }

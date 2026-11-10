@@ -1,7 +1,5 @@
 import type { Dispatch, ReactNode } from 'react';
-import { KARATS, METALS, RATES, STONES, STONE_KEYS, STORE, type Metal, type StoneKey } from './data';
-import { metalRate } from './pricing';
-import { money } from './format';
+import { KARATS, METALS, STONES, STONE_KEYS, type Metal, type StoneKey } from './data';
 import type { Action } from './state';
 import type { OrderState } from './types';
 
@@ -75,37 +73,4 @@ export function Proportions({ share }: { share: { metal: number; stone: number; 
   );
 }
 
-export function RatesModal({ onClose }: { onClose: () => void }) {
-  const rows: [string, number][] = [
-    ['24K gold, per gram', RATES.gold24Gram],
-    ['22K gold, per gram', metalRate('22K')],
-    ['18K gold, per gram', metalRate('18K')],
-    ['14K gold, per gram', metalRate('14K')],
-    ['10K gold, per gram', metalRate('10K')],
-    ['Platinum 950, per gram', metalRate('PT950')],
-    ['Gold spot, per troy ounce', RATES.gold24Gram * 31.1035],
-  ];
-  return (
-    <div className="modal">
-      <div className="sheet">
-        <div className="sec">Live USA metal rates <span className="hint">{RATES.time}</span></div>
-        <table className="rates">
-          <tbody>
-            {rows.map(([label, v]) => (
-              <tr key={label}><td>{label}</td><td className="n">{money(v)}</td></tr>
-            ))}
-          </tbody>
-        </table>
-        <p className="muted">
-          These are sample values until a live USA price feed is connected. Every estimate and combination uses these rates.
-        </p>
-        <div className="actions">
-          <span />
-          <button className="btn dark" onClick={onClose}>Close</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export const TAX_SHORT = STORE.taxLabel.split(' (')[0].toLowerCase();
+export const TAX_SHORT = 'sales tax';
