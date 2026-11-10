@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "react-example",
+      "name": "golden-jewelers-custom-orders",
       "dependencies": {
         "@vitejs/plugin-react": "^6.1.1",
         "react": "^19.0.1",

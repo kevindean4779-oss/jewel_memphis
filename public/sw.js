@@ -1,5 +1,5 @@
 // Offline app shell for the counter tablet. Bump CACHE when the app changes.
-const CACHE = 'gj-custom-order-v2';
+const CACHE = 'gj-custom-orders-v3';
 const SHELL = ['/', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png'];
 
 self.addEventListener('install', event => {
