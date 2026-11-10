@@ -3,12 +3,14 @@ import { STEP_NAMES } from './order/data';
 import { useOrder } from './order/state';
 import { CustomerStep, DesignStep, EstimateStep, CadStep, ConfirmStep } from './order/steps';
 import { RatesModal } from './order/shared';
+import { useRates } from './order/rates';
 import { IconCheck, IconCloud, IconTrend } from './order/icons';
 
 const STEPS = [CustomerStep, DesignStep, EstimateStep, CadStep, ConfirmStep];
 
 export default function App() {
   const { state: s, dispatch, savedAt } = useOrder();
+  const { status: rateStatus } = useRates(true); // keeps prices live and re-prices on change
   const [ratesOpen, setRatesOpen] = useState(false);
   const Step = STEPS[s.step];
   const title = s.cust.ornament.trim() || 'New custom order';
@@ -61,8 +63,9 @@ export default function App() {
             </ol>
           </nav>
 
-          <button type="button" className="btn ghost" onClick={openRates} aria-label="Show metal rates">
+          <button type="button" className="btn ghost" onClick={openRates} aria-label={`Show metal rates (${rateStatus})`}>
             <IconTrend size={18} /><span className="rates-label">Rates</span>
+            <span className={`rate-dot ${rateStatus}`} aria-hidden="true" />
           </button>
 
           <div className="progress" aria-hidden="true">

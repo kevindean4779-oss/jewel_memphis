@@ -1,8 +1,9 @@
 import { useEffect, useRef, type Dispatch, type ReactNode } from 'react';
-import { KARATS, METALS, RATES, STEP_NAMES, STONES, STONE_KEYS, STORE, type Metal, type StoneKey } from './data';
+import { KARATS, METALS, STEP_NAMES, STONES, STONE_KEYS, STORE, type Metal, type StoneKey } from './data';
 import { metalRate } from './pricing';
+import { rateTime, refreshRates, useRates, type RateStatus } from './rates';
 import { money } from './format';
-import { IconX } from './icons';
+import { IconRotate, IconX } from './icons';
 import type { Action } from './state';
 import type { OrderState } from './types';
 
@@ -164,14 +165,11 @@ export function RatesModal({ onClose }: { onClose: () => void }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  const rows: [string, number][] = [
-    ['24K gold, per gram', RATES.gold24Gram],
-    ['22K gold, per gram', metalRate('22K')],
-    ['18K gold, per gram', metalRate('18K')],
-    ['14K gold, per gram', metalRate('14K')],
-    ['10K gold, per gram', metalRate('10K')],
-    ['Platinum 950, per gram', metalRate('PT950')],
-    ['Gold spot, per troy ounce', RATES.gold24Gram * 31.1035],
+  const { spot, status, error } = useRates();
+  const spotRows: [string, number][] = [
+    ['Gold', spot.gold],
+    ['Silver', spot.silver],
+    ['Platinum', spot.platinum],
   ];
   return (
     <div className="scrim" onClick={onClose}>
@@ -179,21 +177,47 @@ export function RatesModal({ onClose }: { onClose: () => void }) {
         <div className="card-head">
           <div>
             <h2 id="rates-title">Metal rates</h2>
-            <div className="card-sub">USA · updated {RATES.time}</div>
+            <div className="card-sub">USD · {spot.source} · {rateTime(spot)}</div>
           </div>
           <button ref={closeRef} className="btn ghost icon" aria-label="Close" onClick={onClose}><IconX /></button>
         </div>
+        <div className="row"><RateBadge status={status} /><span className="spacer" />
+          <button className="btn" onClick={() => refreshRates()}><IconRotate size={16} />Refresh</button>
+        </div>
+        <div className="section-label">Your metals <span>per gram</span></div>
         <table className="table">
           <tbody>
-            {rows.map(([label, v]) => (
+            {METALS.map(m => (
+              <tr key={m}><td>{KARATS[m].label}</td><td className="n">{money(metalRate(m))}</td></tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="section-label">Spot <span>per troy ounce</span></div>
+        <table className="table">
+          <tbody>
+            {spotRows.map(([label, v]) => (
               <tr key={label}><td>{label}</td><td className="n">{money(v)}</td></tr>
             ))}
           </tbody>
         </table>
-        <p className="notice">These are sample values until a live USA price feed is connected. Every estimate and combination uses these rates.</p>
+        {status === 'sample' && <p className="notice warn">Live prices could not be loaded{error ? ` (${error})` : ''}. These are sample values; check prices before quoting.</p>}
+        {status === 'stale' && <p className="notice warn">Showing the last saved prices from {rateTime(spot)}{error ? `. Live feed: ${error}` : ''}.</p>}
+        <p className="faint">Stone prices are set by the store and do not change with the market.</p>
       </div>
     </div>
   );
+}
+
+const STATUS_TEXT: Record<RateStatus, [string, string]> = {
+  live: ['ok', 'Live'],
+  stale: ['warn', 'Last saved'],
+  sample: ['bad', 'Sample prices'],
+  loading: ['', 'Loading'],
+};
+
+export function RateBadge({ status }: { status: RateStatus }) {
+  const [cls, text] = STATUS_TEXT[status];
+  return <span className={`badge ${cls}`}><span className="live-dot" />{text}</span>;
 }
 
 export const TAX_SHORT = STORE.taxLabel.split(' (')[0].toLowerCase();

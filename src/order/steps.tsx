@@ -1,5 +1,6 @@
 import type { ChangeEvent, ReactNode } from 'react';
-import { KARATS, METHODS, OCCASIONS, RATES, STONES, STORE, type Mode } from './data';
+import { KARATS, METHODS, OCCASIONS, STONES, STORE, type Mode } from './data';
+import { rateTime, useRates } from './rates';
 import { allCadOk, allOptions, cadRules, custOk, dimsOk, price, readyDate, type Option } from './pricing';
 import { fmtDate, isoOf, money, parseISO } from './format';
 import { CadViews } from './CadViews';
@@ -185,6 +186,7 @@ function FitBadge({ o, b }: { o: Option; b: number | null }) {
 }
 
 export function EstimateStep({ s, dispatch, onShowRates }: StepProps & { onShowRates: () => void }) {
+  const { spot, status } = useRates();
   const cur = ok(s);
   const isOrig = s.orig !== null && s.orig.metal === s.metal && s.orig.stone === s.stone;
   const all = allOptions(s.dims, s.mode, s.exact);
@@ -217,7 +219,7 @@ export function EstimateStep({ s, dispatch, onShowRates }: StepProps & { onShowR
       <Page
         step={2}
         title="Estimate"
-        desc={<>Priced at live USA rates ({RATES.time}). <button className="link inline" onClick={onShowRates}>View rates</button></>}
+        desc={<>{status === 'live' ? 'Priced at live' : status === 'stale' ? 'Priced at last saved' : 'Priced at sample'} metal rates ({rateTime(spot)}). <button className="link inline" onClick={onShowRates}>View rates</button></>}
       >
         <div className="grid side">
           <div className="stack">

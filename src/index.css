@@ -290,6 +290,13 @@ textarea.input{height:96px;padding:12px 14px;resize:none;line-height:1.5}
 .notice.accent{background:var(--accent-soft);color:var(--accent)}
 .notice.lg{padding:var(--s4) var(--s5);font-size:var(--fs-md);font-weight:500;border-radius:var(--r-lg)}
 
+/* Live-rate indicators */
+.live-dot,.rate-dot{width:7px;height:7px;border-radius:50%;background:currentColor;display:inline-block;flex:none}
+.rate-dot{background:var(--text-3)}
+.rate-dot.live{background:var(--ok);box-shadow:0 0 0 3px var(--ok-soft)}
+.rate-dot.stale{background:var(--warn)}
+.rate-dot.sample{background:var(--bad)}
+
 /* Badges */
 .badge{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 10px;border-radius:var(--r-full);font-size:var(--fs-xs);font-weight:600;white-space:nowrap;background:var(--surface-2);color:var(--text-2)}
 .badge.ok{background:var(--ok-soft);color:var(--ok)}

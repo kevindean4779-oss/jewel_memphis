@@ -1,5 +1,6 @@
-import { CAD, KARATS, LEAD, MAKING, METALS, RANGE, RATES, STONES, STONE_KEYS, STORE, TODAY, TROY_OZ_GRAMS, type Metal, type Mode, type StoneKey } from './data';
+import { CAD, KARATS, LEAD, MAKING, METALS, RANGE, STONES, STONE_KEYS, STORE, TODAY, TROY_OZ_GRAMS, type Metal, type Mode, type StoneKey } from './data';
 import type { Customer, Dims } from './types';
+import { getSpot } from './rates';
 
 export interface Price {
   grams: number;
@@ -23,17 +24,21 @@ export interface Option extends Price {
   stoneKey: StoneKey;
 }
 
+/** Pure metal price per gram (USD) from the live spot feed. */
+export function spotPerGram(spot: 'gold' | 'silver' | 'platinum'): number {
+  return getSpot()[spot] / TROY_OZ_GRAMS;
+}
+
+/** Alloy price per gram: pure metal price × purity. */
 export function metalRate(m: Metal): number {
-  return m === 'PT950'
-    ? (RATES.platinumOz / TROY_OZ_GRAMS) * KARATS.PT950.purity
-    : RATES.gold24Gram * KARATS[m].purity;
+  return spotPerGram(KARATS[m].spot) * KARATS[m].purity;
 }
 
 export function leadDays(m: Metal, s: StoneKey, mode: Mode): number {
   return LEAD.base + LEAD.queue
     + (mode === 'picture' ? LEAD.cadPicture : 0)
     + (m === 'PT950' ? LEAD.platinum : 0)
-    + (s === 'naturalP' ? LEAD.premiumStone : 0);
+    + (s === 'natural' ? LEAD.naturalStone : 0);
 }
 
 export function readyDate(m: Metal, s: StoneKey, mode: Mode): Date {

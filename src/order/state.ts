@@ -1,5 +1,5 @@
 import { useEffect, useReducer, useState } from 'react';
-import { DRAFT_KEY, STORE, type Metal, type StoneKey, type Mode } from './data';
+import { DEFAULT_METAL, DEFAULT_STONE, DRAFT_KEY, KARATS, STONES, STORE, type Metal, type StoneKey, type Mode } from './data';
 import { allCadOk, price } from './pricing';
 import { nowTime } from './format';
 import type { CheckKey, Customer, Dims, OrderState } from './types';
@@ -34,8 +34,8 @@ export function blankOrder(orderNo: string): OrderState {
     mode: 'picture',
     photo: false,
     dims: { w: 22, h: 10, d: 5 },
-    metal: '18K',
-    stone: 'natural',
+    metal: DEFAULT_METAL,
+    stone: DEFAULT_STONE,
     orig: null,
     budget: null,
     fitOnly: true,
@@ -107,6 +107,12 @@ function loadInitial(): OrderState {
     if (raw) {
       const saved = JSON.parse(raw) as Partial<OrderState> | null;
       if (saved && !saved.sent) {
+        // Drafts saved before the material list changed may name a metal or stone that no longer exists.
+        const knownMetal = (m: unknown): m is Metal => typeof m === 'string' && m in KARATS;
+        const knownStone = (k: unknown): k is StoneKey => typeof k === 'string' && k in STONES;
+        if (!knownMetal(saved.metal)) saved.metal = DEFAULT_METAL;
+        if (!knownStone(saved.stone)) saved.stone = DEFAULT_STONE;
+        if (saved.orig && !(knownMetal(saved.orig.metal) && knownStone(saved.orig.stone))) saved.orig = null;
         return {
           ...blankOrder(newOrderNo()),
           ...saved,
