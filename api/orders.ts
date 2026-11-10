@@ -185,6 +185,13 @@ export async function insertOrder(row: OrderRow, env: Record<string, string | un
 }
 
 export async function POST(request: Request): Promise<Response> {
+  // Check staff PIN (optional Vercel env secret, for protecting from public access)
+  const staffPin = (process.env.STAFF_PIN || '').trim();
+  if (staffPin) {
+    const provided = (request.headers.get('x-staff-pin') || '').trim();
+    if (provided !== staffPin) return json({ error: 'Unauthorized' }, 401);
+  }
+
   if (!(request.headers.get('content-type') || '').includes('application/json')) return json({ error: 'Send JSON' }, 415);
   const text = await request.text();
   if (text.length > MAX_BODY) return json({ error: 'Order is too large' }, 413);

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type Dispatch, type ReactNode } from 'react';
 import { KARATS, METALS, STEP_NAMES, STONES, STONE_KEYS, STORE, type Metal, type StoneKey } from './data';
-import { metalRate } from './pricing';
+import { metalRate, phoneOk, emailOk, phoneDigits } from './pricing';
 import { rateTime, refreshRates, useRates, type RateStatus } from './rates';
-import { money } from './format';
+import { money, formatPhone } from './format';
 import { IconRotate, IconX } from './icons';
 import type { Action } from './state';
 import type { OrderState } from './types';
@@ -141,6 +141,72 @@ export function NumField({ label, value, unit = 'mm', invalid = false, onChange 
   );
 }
 
+/** Phone field with real-time formatting and validation feedback */
+export function PhoneField({ label, value, onChange }: {
+  label: string; value: string; onChange: (v: string) => void;
+}) {
+  const [text, setText] = useState(value);
+  const valid = phoneOk(text);
+  const touched = text.length > 0;
+
+  useEffect(() => {
+    setText(value);
+  }, [value]);
+
+  return (
+    <label className="field">
+      <span className="field-label">{label} <span className="required">*</span></span>
+      <input
+        className="input phone"
+        type="tel"
+        inputMode="tel"
+        autoComplete="tel"
+        placeholder="(555) 123-4567"
+        aria-invalid={touched && !valid ? true : undefined}
+        value={text}
+        onChange={e => {
+          const formatted = formatPhone(e.target.value);
+          setText(formatted);
+          onChange(phoneDigits(formatted));
+        }}
+        onBlur={() => {
+          if (text && !valid) {
+            // Keep formatted for display even if invalid
+          }
+        }}
+      />
+      {touched && !valid && <span className="field-error">Need 10-15 digits</span>}
+      {touched && valid && <span className="field-ok">✓ Valid</span>}
+    </label>
+  );
+}
+
+/** Email field with validation feedback */
+export function EmailField({ label, value, onChange }: {
+  label: string; value: string; onChange: (v: string) => void;
+}) {
+  const valid = emailOk(value);
+  const touched = value.length > 0;
+
+  return (
+    <label className="field">
+      <span className="field-label">{label} <span className="optional">(optional)</span></span>
+      <input
+        className="input email"
+        type="email"
+        inputMode="email"
+        autoComplete="email"
+        placeholder="name@example.com"
+        aria-invalid={touched && !valid ? true : undefined}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+      />
+      {touched && !valid && <span className="field-error">Invalid email format</span>}
+      {touched && valid && <span className="field-ok">✓ Valid</span>}
+    </label>
+  );
+}
+
 export function Choices<T extends string>({ label, options, value, onChange, render }: {
   label: string; options: readonly T[]; value: T | ''; onChange: (v: T) => void; render: (v: T) => ReactNode;
 }) {
@@ -236,3 +302,47 @@ export function RateBadge({ status }: { status: RateStatus }) {
 }
 
 export const TAX_SHORT = STORE.taxLabel.split(' (')[0].toLowerCase();
+
+/* ---------- Loading & Feedback ---------- */
+
+export function Spinner({ size = 24 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="spinner">
+      <circle cx="12" cy="12" r="10" opacity="0.3" />
+      <path d="M12 2a10 10 0 0 1 10 10" />
+    </svg>
+  );
+}
+
+export function LoadingText({ children }: { children: ReactNode }) {
+  return <div className="loading-text"><Spinner size={16} /> {children}</div>;
+}
+
+export function ErrorBox({ title, message, action, onRetry }: {
+  title: string; message: string; action?: ReactNode; onRetry?: () => void;
+}) {
+  return (
+    <div className="notice bad">
+      <div>
+        <strong>{title}</strong>
+        <p>{message}</p>
+      </div>
+      {onRetry && <button className="btn sm" onClick={onRetry}>Retry</button>}
+      {action}
+    </div>
+  );
+}
+
+export function SuccessBox({ title, message, children }: {
+  title: string; message: string; children?: ReactNode;
+}) {
+  return (
+    <div className="notice ok">
+      <div>
+        <strong>✓ {title}</strong>
+        <p>{message}</p>
+        {children}
+      </div>
+    </div>
+  );
+}
