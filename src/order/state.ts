@@ -48,13 +48,9 @@ export function blankOrder(orderNo: string): OrderState {
   };
 }
 
-export const SAMPLE_ORDER: OrderState = {
-  ...blankOrder('CO-2041'),
-  cust: {
-    name: 'Meera Sharma', phone: '(555) 014-2280', email: '', ornament: 'Lotus jhumka',
-    occasion: 'Wedding', needed: '', notes: '',
-  },
-};
+export function newOrderNo(): string {
+  return 'CO-' + (2042 + Math.floor(Math.random() * 500));
+}
 
 export function reduce(s: OrderState, a: Action): OrderState {
   switch (a.type) {
@@ -112,10 +108,10 @@ function loadInitial(): OrderState {
       const saved = JSON.parse(raw) as Partial<OrderState> | null;
       if (saved && !saved.sent) {
         return {
-          ...SAMPLE_ORDER,
+          ...blankOrder(newOrderNo()),
           ...saved,
-          cust: { ...SAMPLE_ORDER.cust, ...saved.cust },
-          checks: { ...SAMPLE_ORDER.checks, ...saved.checks },
+          cust: { ...blankOrder('').cust, ...saved.cust },
+          checks: { ...blankOrder('').checks, ...saved.checks },
           restored: true,
         } as OrderState;
       }
@@ -123,7 +119,7 @@ function loadInitial(): OrderState {
   } catch {
     /* ignore a damaged draft */
   }
-  return SAMPLE_ORDER;
+  return blankOrder(newOrderNo());
 }
 
 // Holds the order and autosaves the draft to this browser.

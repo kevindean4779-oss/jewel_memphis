@@ -3,6 +3,7 @@ import { KARATS, METHODS, OCCASIONS, RATES, STONES, STORE, type Mode } from './d
 import { allCadOk, allOptions, cadRules, custOk, dimsOk, price, readyDate, type Option } from './pricing';
 import { fmtDate, isoOf, money, parseISO } from './format';
 import { CadViews } from './CadViews';
+import { newOrderNo } from './state';
 import { Kv, MetalChips, NumField, Proportions, StoneChips, TAX_SHORT, type StepProps } from './shared';
 
 function ok(s: StepProps['s']) {
@@ -25,13 +26,13 @@ export function CustomerStep({ s, dispatch }: StepProps) {
         <section className="card">
           <div className="sec">Customer</div>
           <div className="fields">
-            <label className="field">Full name<span className="req">*</span>
+            <label className="field"><span>Full name<span className="req">*</span></span>
               <input value={c.name} placeholder="e.g. Meera Sharma" onChange={set('name')} />
             </label>
-            <label className="field">Phone<span className="req">*</span>
+            <label className="field"><span>Phone<span className="req">*</span></span>
               <input value={c.phone} placeholder="(555) 000-0000" onChange={set('phone')} />
             </label>
-            <label className="field full">Email<span className="opt">optional</span>
+            <label className="field full"><span>Email<span className="opt">optional</span></span>
               <input type="email" value={c.email} placeholder="name@example.com" onChange={set('email')} />
             </label>
           </div>
@@ -39,7 +40,7 @@ export function CustomerStep({ s, dispatch }: StepProps) {
         <section className="card">
           <div className="sec">Ornament</div>
           <div className="fields">
-            <label className="field full">Ornament name<span className="req">*</span>
+            <label className="field full"><span>Ornament name<span className="req">*</span></span>
               <input value={c.ornament} placeholder="e.g. Lotus jhumka" onChange={set('ornament')} />
             </label>
             <div className="field full">
@@ -50,11 +51,11 @@ export function CustomerStep({ s, dispatch }: StepProps) {
                 ))}
               </div>
             </div>
-            <label className="field">Needed by
+            <label className="field"><span>Needed by</span>
               <input type="date" min={isoOf(ready)} value={c.needed} onChange={set('needed')} />
               <small>Earliest ready date: {fmtDate(ready)}</small>
             </label>
-            <label className="field">Notes<span className="opt">optional</span>
+            <label className="field"><span>Notes<span className="opt">optional</span></span>
               <textarea placeholder="Anything the workshop should know" value={c.notes} onChange={set('notes')} />
             </label>
           </div>
@@ -471,7 +472,7 @@ export function ConfirmStep({ s, dispatch }: StepProps) {
             </div>
             <div className="grow" />
             {s.sent
-              ? <button className="btn dark lg" onClick={() => dispatch({ type: 'newOrder', orderNo: 'CO-' + (2042 + Math.floor(Math.random() * 500)) })}>Start a new order</button>
+              ? <button className="btn dark lg" onClick={() => dispatch({ type: 'newOrder', orderNo: newOrderNo() })}>Start a new order</button>
               : (
                 <>
                   <button className="btn primary lg" disabled={missing.length > 0} onClick={() => dispatch({ type: 'send' })}>Send to workshop</button>

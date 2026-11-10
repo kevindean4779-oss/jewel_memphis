@@ -7,9 +7,11 @@
   --r:16px; --shadow:0 1px 2px rgba(28,26,23,.05),0 6px 20px rgba(28,26,23,.05);
 }
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;font-size:15px;-webkit-font-smoothing:antialiased}
+body{margin:0;overscroll-behavior-y:none;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;font-size:15px;-webkit-font-smoothing:antialiased}
 button,input,textarea{font-family:inherit}
-.app{max-width:1180px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+.app{max-width:1180px;margin:0 auto;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+html{touch-action:manipulation;-webkit-text-size-adjust:100%}
+.btn,.chip,.method,.opt-card,.link{min-height:44px}
 
 header{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:18px 32px;background:var(--card);border-bottom:1px solid var(--line);flex-wrap:wrap}
 .brand{display:flex;align-items:center;gap:14px;min-width:0}
@@ -62,11 +64,11 @@ input:focus,textarea:focus{outline:none;border-color:var(--gold);box-shadow:0 0 
 .actions{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
 .actions .right{display:flex;gap:10px;align-items:center}
 .chips{display:flex;gap:8px;flex-wrap:wrap}
-.chip{height:40px;padding:0 16px;border-radius:999px;border:1px solid var(--line);background:#fff;font:500 14px Inter,sans-serif;color:var(--ink);cursor:pointer;transition:all .15s}
+.chip{min-height:44px;height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--line);background:#fff;font:500 14px Inter,sans-serif;color:var(--ink);cursor:pointer;transition:all .15s}
 .chip:hover{border-color:#CFC6B5}
 .chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .seg{display:inline-flex;background:var(--line2);border-radius:12px;padding:4px;gap:4px}
-.seg .chip{border:0;background:transparent;height:36px}
+.seg .chip{border:0;background:transparent;height:44px}
 .seg .chip.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.1)}
 
 .methods{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -177,4 +179,18 @@ input:focus,textarea:focus{outline:none;border-color:var(--gold);box-shadow:0 0 
   .grid2,.grid2.l,.cadgrid{grid-template-columns:1fr}
   .stepper .st span:not(.dot){display:none}
   .methods{grid-template-columns:1fr}
+}
+
+/* iPad: keep the counter layout comfortable in both orientations */
+@media (min-width:600px) and (max-width:1100px) and (orientation:portrait){
+  main{padding:20px 24px 24px}
+  header{padding:14px 24px}
+}
+@media (max-width:1100px){
+  .bottombar{position:sticky;bottom:12px;z-index:5;box-shadow:0 8px 24px rgba(28,26,23,.12)}
+}
+@media (max-width:600px){
+  main{padding:16px}
+  header{padding:12px 16px}
+  .title{font-size:22px;max-width:70vw}
 }
