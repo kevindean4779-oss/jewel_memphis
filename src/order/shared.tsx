@@ -1,4 +1,4 @@
-import { useEffect, useRef, type Dispatch, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type Dispatch, type ReactNode } from 'react';
 import { KARATS, METALS, STEP_NAMES, STONES, STONE_KEYS, STORE, type Metal, type StoneKey } from './data';
 import { metalRate } from './pricing';
 import { rateTime, refreshRates, useRates, type RateStatus } from './rates';
@@ -106,19 +106,34 @@ export function Proportions({ share, legend = true }: { share: { metal: number; 
 
 /* ---------- Inputs ---------- */
 
-export function NumField({ label, value, unit = 'mm', onChange }: { label: string; value: number; unit?: string; onChange: (n: number) => void }) {
+// Keeps the typed text locally, so partial input such as "12." or an empty field is not
+// overwritten while typing; the parsed number (NaN when empty) is reported on every change.
+export function NumField({ label, value, unit = 'mm', invalid = false, onChange }: {
+  label: string; value: number; unit?: string; invalid?: boolean; onChange: (n: number) => void;
+}) {
+  const [text, setText] = useState(Number.isFinite(value) ? String(value) : '');
+  useEffect(() => {
+    // Follow outside changes (e.g. a restored draft) without fighting the person typing.
+    setText(t => (parseFloat(t) === value || (!Number.isFinite(value) && t.trim() === '') ? t : Number.isFinite(value) ? String(value) : ''));
+  }, [value]);
   return (
     <label className="field">
       <span className="field-label">{label}</span>
       <span className="affix">
         <input
           className="input num"
-          type="number"
+          type="text"
           inputMode="decimal"
-          min="0.5"
-          step="0.5"
-          value={Number.isFinite(value) ? value : ''}
-          onChange={e => onChange(parseFloat(e.target.value))}
+          autoComplete="off"
+          pattern="[0-9]*[.,]?[0-9]*"
+          aria-invalid={invalid || undefined}
+          value={text}
+          onChange={e => {
+            const raw = e.target.value.replace(',', '.').replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1').slice(0, 7);
+            setText(raw);
+            onChange(raw === '' || raw === '.' ? NaN : parseFloat(raw));
+          }}
+          onBlur={() => { if (Number.isFinite(value)) setText(String(value)); }}
         />
         <span className="unit">{unit}</span>
       </span>

@@ -1,4 +1,5 @@
 import type { Metal, Mode, StoneKey } from './data';
+import type { Spot } from './rates';
 
 export interface Dims {
   w: number;
@@ -25,6 +26,7 @@ export interface Checks {
 export type CheckKey = keyof Checks;
 
 export interface OrderState {
+  id: string; // UUID; the database row key, so a resend never creates a duplicate row
   step: number;
   orderNo: string;
   cust: Customer;
@@ -40,6 +42,10 @@ export interface OrderState {
   exact: boolean; // true once the CAD model is generated for the current size
   deposit: number;
   checks: Checks;
+  // Metal rates frozen when the customer agrees the price, so a rate refresh
+  // cannot change an agreed quote. Cleared when the design or price changes.
+  lockedSpot: Spot | null;
   sent: boolean;
+  sentAt: string | null; // ISO
   restored: boolean;
 }

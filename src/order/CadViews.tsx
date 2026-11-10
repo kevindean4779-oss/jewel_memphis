@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import type { Dims } from './types';
+import { dimsOk } from './pricing';
 
 type CadView = 'front' | 'side' | 'top' | 'angled';
 const VIEWS: [CadView, string, string][] = [
@@ -77,9 +78,18 @@ export function CadViews({ dims }: { dims: Dims }) {
   const canvases = useRef<Partial<Record<CadView, HTMLCanvasElement | null>>>({});
   const { w, h, d } = dims;
 
+  const valid = dimsOk(dims);
+  const [failed, setFailed] = useState(false);
+
   useEffect(() => {
-    if (!WEBGL_OK) return;
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    if (!WEBGL_OK || !dimsOk({ w, h, d })) return;
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    } catch {
+      setFailed(true); // e.g. the GPU refused a context; show the size instead of crashing
+      return;
+    }
     const geo = cadGeometry({ w, h, d });
     const mat = new THREE.MeshStandardMaterial({ color: 0xc9a227, metalness: 0.55, roughness: 0.35 });
     const lines: Partial<Record<CadView, [number, number, string, string]>> = {
@@ -121,12 +131,14 @@ export function CadViews({ dims }: { dims: Dims }) {
     };
   }, [w, h, d]);
 
+  if (!valid) return <div className="card muted">Enter a valid size to see the CAD views.</div>;
+
   return (
     <div className="cad-grid">
       {VIEWS.map(([view, name, cap]) => (
         <div className="cad-cell" key={view}>
           <div className="hd"><span>{name}</span><span>{cap}</span></div>
-          {WEBGL_OK ? (
+          {WEBGL_OK && !failed ? (
             <canvas
               ref={el => { canvases.current[view] = el; }}
               width={640}

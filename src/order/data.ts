@@ -1,7 +1,6 @@
 // Store constants. Metal prices come live from /api/rates (see src/order/rates.ts);
 // stone prices and lead times below are set by the store.
 
-export const TODAY = new Date(2026, 10, 10);
 export const TROY_OZ_GRAMS = 31.1035;
 
 export const STORE = {
@@ -10,6 +9,11 @@ export const STORE = {
   deposits: [25, 50, 100],
   defaultDeposit: 50,
 };
+
+// Allowed outer size per side, in mm. Anything outside is treated as a typing error.
+export const DIM_LIMITS = { min: 0.5, max: 200 };
+// Maximum lengths for text fields (also enforced by the server and the database).
+export const TEXT_LIMITS = { name: 120, phone: 30, email: 254, ornament: 120, notes: 1000 };
 
 export const MAKING = 80; // placeholder workshop labour; replace with labour table
 export const RANGE = { picture: 0.1, dims: 0.15 }; // +/- volume tolerance before CAD is generated

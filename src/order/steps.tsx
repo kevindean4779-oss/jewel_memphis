@@ -1,10 +1,11 @@
-import type { ChangeEvent, ReactNode } from 'react';
+import { useState, type ChangeEvent, type ReactNode } from 'react';
 import { KARATS, METHODS, OCCASIONS, STONES, STORE, type Mode } from './data';
-import { rateTime, useRates } from './rates';
-import { allCadOk, allOptions, cadRules, custOk, dimsOk, price, readyDate, type Option } from './pricing';
+import { isSampleSpot, rateTime, useRates } from './rates';
+import { allCadOk, allOptions, cadRules, cents, custErrors, custOk, dimOk, dimsOk, price, readyDate, validISODate, type Option } from './pricing';
 import { fmtDate, isoOf, money, parseISO } from './format';
 import { CadViews } from './CadViews';
-import { newOrderNo } from './state';
+import { missingForSend, newOrderNo, orderSpot, uuid } from './state';
+import { buildOrderRecord, retry, submitOrder, useOutbox } from './orders';
 import {
   ActionBar, Card, Choices, Kv, MetalChips, NumField, Page, Proportions, StoneChips, TAX_SHORT, Total, type StepProps,
 } from './shared';
@@ -12,9 +13,34 @@ import {
   IconAlert, IconArrowLeft, IconArrowRight, IconCamera, IconCheck, IconCube, IconInfo, IconPlus, IconRotate, IconRuler, IconSend, IconX,
 } from './icons';
 
+// Prices the order at its frozen rates once the price is agreed, otherwise at live rates.
 function ok(s: StepProps['s']) {
-  return price(s.dims, s.metal, s.stone, s.mode, s.exact);
+  return price(s.dims, s.metal, s.stone, s.mode, s.exact, orderSpot(s));
 }
+
+function DimFields({ s, dispatch }: StepProps) {
+  return (
+    <div className="dims">
+      <NumField label="Width" value={s.dims.w} invalid={!dimOk(s.dims.w)} onChange={v => dispatch({ type: 'dim', key: 'w', value: v })} />
+      <NumField label="Height" value={s.dims.h} invalid={!dimOk(s.dims.h)} onChange={v => dispatch({ type: 'dim', key: 'h', value: v })} />
+      <NumField label="Depth" value={s.dims.d} invalid={!dimOk(s.dims.d)} onChange={v => dispatch({ type: 'dim', key: 'd', value: v })} />
+    </div>
+  );
+}
+
+const mm = (v: number) => (dimOk(v) ? `${v} mm` : '—');
+
+function DimTiles({ s }: { s: StepProps['s'] }) {
+  return (
+    <div className="dim-tiles">
+      <div><small>Width</small><b>{mm(s.dims.w)}</b></div>
+      <div><small>Height</small><b>{mm(s.dims.h)}</b></div>
+      <div><small>Depth</small><b>{mm(s.dims.d)}</b></div>
+    </div>
+  );
+}
+
+const DIM_HELP = <div className="notice warn"><IconAlert /><span>Each side must be between 0.5 and 200 mm.</span></div>;
 
 const METHOD_ICONS: Record<Mode, ReactNode> = { picture: <IconCamera size={22} />, dims: <IconRuler size={22} /> };
 
@@ -29,6 +55,15 @@ export function CustomerStep({ s, dispatch }: StepProps) {
   const set = (key: keyof typeof c) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     dispatch({ type: 'cust', key, value: e.target.value });
   const can = custOk(c);
+  const errs = custErrors(c);
+  // Show a field's error only after the person has left it, or tried to continue.
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [tried, setTried] = useState(false);
+  const show = (k: keyof typeof errs) => (touched[k] || tried) && errs[k];
+  const blur = (k: string) => () => setTouched(t => ({ ...t, [k]: true }));
+  const err = (k: keyof typeof errs) => show(k) ? <span className="field-error" id={`err-${k}`}>{errs[k]}</span> : null;
+  const aria = (k: keyof typeof errs) => ({ 'aria-invalid': show(k) ? true : undefined, 'aria-describedby': show(k) ? `err-${k}` : undefined });
+  const neededBad = c.needed !== '' && (!validISODate(c.needed) || parseISO(c.needed) < ready);
 
   return (
     <>
@@ -40,20 +75,24 @@ export function CustomerStep({ s, dispatch }: StepProps) {
           <Card title="Customer">
             <div className="fields">
               <label className="field full"><span className="field-label">Full name<span className="req">*</span></span>
-                <input className="input" autoComplete="name" value={c.name} placeholder="e.g. Meera Sharma" onChange={set('name')} />
+                <input className="input" autoComplete="name" maxLength={120} value={c.name} placeholder="e.g. Meera Sharma" onChange={set('name')} onBlur={blur('name')} {...aria('name')} />
+                {err('name')}
               </label>
               <label className="field"><span className="field-label">Phone<span className="req">*</span></span>
-                <input className="input" type="tel" inputMode="tel" autoComplete="tel" value={c.phone} placeholder="(555) 000-0000" onChange={set('phone')} />
+                <input className="input" type="tel" inputMode="tel" autoComplete="tel" maxLength={30} value={c.phone} placeholder="(555) 000-0000" onChange={set('phone')} onBlur={blur('phone')} {...aria('phone')} />
+                {err('phone')}
               </label>
               <label className="field"><span className="field-label">Email<span className="opt">Optional</span></span>
-                <input className="input" type="email" autoComplete="email" value={c.email} placeholder="name@example.com" onChange={set('email')} />
+                <input className="input" type="email" autoComplete="email" maxLength={254} value={c.email} placeholder="name@example.com" onChange={set('email')} onBlur={blur('email')} {...aria('email')} />
+                {err('email')}
               </label>
             </div>
           </Card>
           <Card title="Ornament">
             <div className="fields">
               <label className="field full"><span className="field-label">Ornament name<span className="req">*</span></span>
-                <input className="input" value={c.ornament} placeholder="e.g. Lotus pendant" onChange={set('ornament')} />
+                <input className="input" maxLength={120} value={c.ornament} placeholder="e.g. Lotus pendant" onChange={set('ornament')} onBlur={blur('ornament')} {...aria('ornament')} />
+                {err('ornament')}
               </label>
               <div className="field full">
                 <span className="field-label">Occasion<span className="opt">Optional</span></span>
@@ -61,11 +100,14 @@ export function CustomerStep({ s, dispatch }: StepProps) {
                   onChange={value => dispatch({ type: 'occasion', value })} render={o => o} />
               </div>
               <label className="field"><span className="field-label">Needed by<span className="opt">Optional</span></span>
-                <input className="input" type="date" min={isoOf(ready)} value={c.needed} onChange={set('needed')} />
-                <span className="field-help">Earliest ready date: {fmtDate(ready)}</span>
+                <input className="input" type="date" min={isoOf(ready)} value={c.needed} onChange={set('needed')} aria-invalid={neededBad || undefined} />
+                {neededBad
+                  ? <span className="field-error">Earlier than the earliest ready date ({fmtDate(ready)}). Agree a later date with the customer.</span>
+                  : <span className="field-help">Earliest ready date: {fmtDate(ready)}</span>}
               </label>
               <label className="field"><span className="field-label">Notes<span className="opt">Optional</span></span>
-                <textarea className="input" placeholder="Anything the workshop should know" value={c.notes} onChange={set('notes')} />
+                <textarea className="input" maxLength={1000} placeholder="Anything the workshop should know" value={c.notes} onChange={set('notes')} />
+                {c.notes.length > 900 && <span className="field-help">{1000 - c.notes.length} characters left</span>}
               </label>
             </div>
           </Card>
@@ -82,8 +124,9 @@ export function CustomerStep({ s, dispatch }: StepProps) {
           </div>
         </Card>
       </Page>
-      <ActionBar info={can ? <>Ready for <b>{c.ornament.trim()}</b></> : 'Name, phone and ornament name are required.'}>
-        <button className="btn primary lg" disabled={!can} onClick={() => dispatch({ type: 'go', step: 1 })}>
+      <ActionBar info={can ? <>Ready for <b>{c.ornament.trim()}</b></> : 'Name, a 10-digit phone and the ornament name are required.'}>
+        {/* Not disabled: tapping it reveals what is missing. */}
+        <button className="btn primary lg" aria-disabled={!can} onClick={() => { if (can) dispatch({ type: 'go', step: 1 }); else setTried(true); }}>
           Continue to design<IconArrowRight />
         </button>
       </ActionBar>
@@ -146,11 +189,8 @@ export function DesignStep({ s, dispatch }: StepProps) {
       <Page step={1} title="Size and materials" desc="Enter the outer size, then choose the metal and stones.">
         <div className="grid wide">
           <Card title="Size" sub="Width × height × depth, in millimetres">
-            <div className="dims">
-              <NumField label="Width" value={s.dims.w} onChange={v => dispatch({ type: 'dim', key: 'w', value: v })} />
-              <NumField label="Height" value={s.dims.h} onChange={v => dispatch({ type: 'dim', key: 'h', value: v })} />
-              <NumField label="Depth" value={s.dims.d} onChange={v => dispatch({ type: 'dim', key: 'd', value: v })} />
-            </div>
+            <DimFields s={s} dispatch={dispatch} />
+            {!valid && DIM_HELP}
             <div className="hr" />
             <div className="section-label">Metal</div>
             <MetalChips s={s} dispatch={dispatch} />
@@ -163,7 +203,7 @@ export function DesignStep({ s, dispatch }: StepProps) {
                 <Total label="Estimated price" value={p.total} note={`incl. ${TAX_SHORT}`} />
                 <Proportions share={{ metal: p.shareMetal, stone: p.shareStone, making: p.shareMaking }} />
               </>
-              : <div className="notice warn"><IconAlert /><span>Enter a width, height and depth above zero.</span></div>}
+              : <div className="notice warn"><IconAlert /><span>Enter a valid size to see the price.</span></div>}
           </Card>
         </div>
       </Page>
@@ -189,7 +229,8 @@ export function EstimateStep({ s, dispatch, onShowRates }: StepProps & { onShowR
   const { spot, status } = useRates();
   const cur = ok(s);
   const isOrig = s.orig !== null && s.orig.metal === s.metal && s.orig.stone === s.stone;
-  const all = allOptions(s.dims, s.mode, s.exact);
+  const valid = dimsOk(s.dims);
+  const all = allOptions(s.dims, s.mode, s.exact, orderSpot(s));
   const b = s.budget;
   const mayFit = b === null ? [] : all.filter(o => o.low <= b);
   const sure = b === null ? [] : all.filter(o => o.high <= b);
@@ -197,6 +238,7 @@ export function EstimateStep({ s, dispatch, onShowRates }: StepProps & { onShowR
     .slice()
     .sort((x, y) => (b === null ? x.total - y.total : Math.abs(b - x.total) - Math.abs(b - y.total)));
   const curOver = b !== null && cur.low > b;
+  const blocked = curOver || !valid;
   const curMay = b !== null && !curOver && cur.high > b;
 
   const budgetSummary = b === null
@@ -205,7 +247,9 @@ export function EstimateStep({ s, dispatch, onShowRates }: StepProps & { onShowR
       ? <><b>{sure.length} of {all.length}</b> combinations are within {money(b)}. <b>{mayFit.length - sure.length}</b> may exceed it once the CAD model is made.</>
       : <>No combination fits {money(b)}. The lowest is <b>{money(all[0].low)}</b>. Try a higher budget or a smaller size.</>;
 
-  const bottomInfo = curOver
+  const bottomInfo = !valid
+    ? <span style={{ color: 'var(--bad)' }}>Fix the size to continue.</span>
+    : curOver
     ? <span style={{ color: 'var(--bad)' }}><b style={{ color: 'inherit' }}>{money(cur.total)}</b> is over the budget. Pick a combination that fits.</span>
     : <>
       <b>{KARATS[s.metal].label} · {STONES[s.stone].label}</b>{' '}
@@ -229,11 +273,7 @@ export function EstimateStep({ s, dispatch, onShowRates }: StepProps & { onShowR
             >
               {s.mode === 'picture'
                 ? <div className="notice accent"><IconCamera /><span>Size estimated from the photo</span></div>
-                : <div className="dim-tiles">
-                  <div><small>Width</small><b>{s.dims.w} mm</b></div>
-                  <div><small>Height</small><b>{s.dims.h} mm</b></div>
-                  <div><small>Depth</small><b>{s.dims.d} mm</b></div>
-                </div>}
+                : <DimTiles s={s} />}
               <div className="kv-list">
                 <Kv label={`${KARATS[s.metal].label} · ${cur.grams.toFixed(2)} g`} value={money(cur.metal)} />
                 <Kv label={`${STONES[s.stone].label} · 0.20 ct`} value={money(cur.stone)} />
@@ -249,11 +289,8 @@ export function EstimateStep({ s, dispatch, onShowRates }: StepProps & { onShowR
               )}
             </Card>
             <Card title="Edit design">
-              <div className="dims">
-                <NumField label="Width" value={s.dims.w} onChange={v => dispatch({ type: 'dim', key: 'w', value: v })} />
-                <NumField label="Height" value={s.dims.h} onChange={v => dispatch({ type: 'dim', key: 'h', value: v })} />
-                <NumField label="Depth" value={s.dims.d} onChange={v => dispatch({ type: 'dim', key: 'd', value: v })} />
-              </div>
+              <DimFields s={s} dispatch={dispatch} />
+              {!valid && DIM_HELP}
               <div className="section-label">Metal</div>
               <MetalChips s={s} dispatch={dispatch} />
               <div className="section-label">Stones</div>
@@ -299,7 +336,7 @@ export function EstimateStep({ s, dispatch, onShowRates }: StepProps & { onShowR
                 </Card>
               )}
 
-            {s.showBudget && (
+            {s.showBudget && valid && (
               <div className="options">
                 {b !== null && s.fitOnly && mayFit.length === 0
                   ? <div className="notice bad"><IconAlert /><span>Nothing fits this budget at the current size. Raise the budget, or reduce the size on the left.</span></div>
@@ -345,7 +382,7 @@ export function EstimateStep({ s, dispatch, onShowRates }: StepProps & { onShowR
       </Page>
       <ActionBar info={bottomInfo}>
         <Back onClick={() => dispatch({ type: 'go', step: 1 })} />
-        <button className="btn primary lg" disabled={curOver} onClick={() => dispatch({ type: 'go', step: 3 })}>
+        <button className="btn primary lg" disabled={blocked} onClick={() => dispatch({ type: 'go', step: 3 })}>
           Confirm and make CAD<IconArrowRight />
         </button>
       </ActionBar>
@@ -372,11 +409,7 @@ export function CadStep({ s, dispatch }: StepProps) {
           <CadViews dims={s.dims} />
           <div className="stack">
             <Card title="Specification" sub="Size is fixed by the design">
-              <div className="dim-tiles">
-                <div><small>Width</small><b>{s.dims.w} mm</b></div>
-                <div><small>Height</small><b>{s.dims.h} mm</b></div>
-                <div><small>Depth</small><b>{s.dims.d} mm</b></div>
-              </div>
+              <DimTiles s={s} />
               <div className="kv-list">
                 <Kv label="Metal" value={`${KARATS[s.metal].label} · ${p.grams.toFixed(2)} g`} />
                 <Kv label="Stones" value={`${STONES[s.stone].label} · 0.20 ct`} />
@@ -409,30 +442,57 @@ export function CadStep({ s, dispatch }: StepProps) {
 }
 
 /* ============================ STEP 5: CONFIRM ============================ */
+function SyncNotice({ id }: { id: string }) {
+  const item = useOutbox().find(i => i.id === id);
+  if (!item) return null;
+  if (item.status === 'saved') return <div className="notice ok"><IconCheck /><span>Saved to the order database.</span></div>;
+  if (item.status === 'rejected') {
+    return (
+      <div className="notice bad">
+        <IconAlert />
+        <span style={{ flex: 1 }}>The database refused this order: {item.error}. It is kept on this tablet.</span>
+        <button className="btn" onClick={() => retry(id)}>Retry</button>
+      </div>
+    );
+  }
+  return (
+    <div className="notice warn">
+      <IconInfo />
+      <span style={{ flex: 1 }}>
+        {item.attempts === 0 ? 'Saving to the order database…' : `Not saved yet (${item.error}). It is kept on this tablet and will retry automatically.`}
+      </span>
+      {item.attempts > 0 && <button className="btn" onClick={() => retry(id)}>Retry now</button>}
+    </div>
+  );
+}
+
 export function ConfirmStep({ s, dispatch }: StepProps) {
+  const { spot: liveSpot, status: rateStatus } = useRates();
   const o = ok(s);
   const c = s.cust;
   const ready = readyDate(s.metal, s.stone, s.mode);
-  const needed = c.needed ? parseISO(c.needed) : null;
+  const needed = c.needed && validISODate(c.needed) ? parseISO(c.needed) : null;
   const dateOk = !needed || needed >= ready;
-  const depositAmt = (o.total * s.deposit) / 100;
-  const balance = o.total - depositAmt;
+  const depositAmt = cents((o.total * s.deposit) / 100);
+  const balance = cents(o.total - depositAmt);
   const src = s.mode === 'picture' ? 'Photo, size estimated' : 'Dimensions entered';
+  const missing = missingForSend(s);
+  const sampleRates = s.lockedSpot ? isSampleSpot(s.lockedSpot) : isSampleSpot(liveSpot);
 
-  const missing: string[] = [];
-  if (!s.exact) missing.push('CAD model');
-  if (!s.checks.details) missing.push('customer check');
-  if (!s.checks.design) missing.push('design approval');
-  if (!s.checks.price) missing.push('price agreement');
-  if (!s.checks.deposit) missing.push('deposit');
-  if (needed && needed < ready) missing.push('needed-by date');
+  const send = () => {
+    if (missing.length) return;
+    const at = new Date().toISOString();
+    // Queue the row first, then mark the order sent; the outbox keeps it until Supabase confirms.
+    submitOrder(buildOrderRecord({ ...s, sentAt: at }));
+    dispatch({ type: 'send', at });
+  };
 
-  const checkItem = (key: keyof typeof s.checks, text: string) => (
+  const checkItem = (key: keyof typeof s.checks, text: ReactNode, disabled = false) => (
     <label className="check">
       <input
         type="checkbox"
         checked={s.checks[key]}
-        disabled={s.sent}
+        disabled={s.sent || disabled}
         onChange={e => dispatch({ type: 'check', key, on: e.target.checked })}
       />
       <span>{text}</span>
@@ -449,6 +509,7 @@ export function ConfirmStep({ s, dispatch }: StepProps) {
             <span>Order #{s.orderNo} sent to the workshop for {c.ornament}. Ready by {fmtDate(ready)}.</span>
           </div>
         )}
+        {s.sent && <SyncNotice id={s.id} />}
         <div className="grid">
           <div className="stack">
             <Card title="Customer">
@@ -459,14 +520,10 @@ export function ConfirmStep({ s, dispatch }: StepProps) {
                 {c.occasion && <Kv label="Occasion" value={c.occasion} />}
                 {needed && <Kv label="Needed by" value={fmtDate(needed)} />}
               </div>
-              {c.notes && <div className="notice">{c.notes}</div>}
+              {c.notes && <div className="notice" style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{c.notes}</div>}
             </Card>
             <Card title={c.ornament} sub={src}>
-              <div className="dim-tiles">
-                <div><small>Width</small><b>{s.dims.w} mm</b></div>
-                <div><small>Height</small><b>{s.dims.h} mm</b></div>
-                <div><small>Depth</small><b>{s.dims.d} mm</b></div>
-              </div>
+              <DimTiles s={s} />
               <div className="kv-list">
                 <Kv label="Metal" value={`${KARATS[s.metal].label} · ${o.grams.toFixed(2)} g`} />
                 <Kv label="Stones" value={`${STONES[s.stone].label} · 0.20 ct`} />
@@ -476,14 +533,19 @@ export function ConfirmStep({ s, dispatch }: StepProps) {
             </Card>
             <Card title="Workshop schedule">
               <Kv label="Earliest ready date" value={fmtDate(ready)} />
-              {needed && !dateOk
-                ? <div className="notice bad"><IconAlert /><span>The needed-by date ({fmtDate(needed)}) is earlier than the earliest ready date. Change the date on the customer page, or agree a later date with the customer.</span></div>
-                : <div className="notice ok"><IconCheck /><span>{needed ? 'Needed-by date is achievable.' : 'No needed-by date set.'}</span></div>}
+              {c.needed && !validISODate(c.needed)
+                ? <div className="notice bad"><IconAlert /><span>The needed-by date is not a valid date. Fix it on the customer page.</span></div>
+                : needed && !dateOk
+                  ? <div className="notice bad"><IconAlert /><span>The needed-by date ({fmtDate(needed)}) is earlier than the earliest ready date. Change the date on the customer page, or agree a later date with the customer.</span></div>
+                  : <div className="notice ok"><IconCheck /><span>{needed ? 'Needed-by date is achievable.' : 'No needed-by date set.'}</span></div>}
             </Card>
           </div>
 
           <div className="stack">
-            <Card title="Price">
+            <Card
+              title="Price"
+              action={s.lockedSpot ? <span className="badge ok">Locked</span> : <span className="badge warn">Live rates</span>}
+            >
               <div className="kv-list">
                 <Kv label="Metal" value={money(o.metal)} />
                 <Kv label="Stones" value={money(o.stone)} />
@@ -492,6 +554,11 @@ export function ConfirmStep({ s, dispatch }: StepProps) {
                 <Kv label={STORE.taxLabel} value={money(o.tax)} cls="soft" />
               </div>
               <Total label="Total" value={o.total} />
+              <p className="faint">
+                {s.lockedSpot
+                  ? <>Locked at metal rates from {rateTime(s.lockedSpot)} ({s.lockedSpot.source}).</>
+                  : <>Follows live metal rates until the price is agreed below{rateStatus !== 'live' ? ' (rates are not live right now)' : ''}.</>}
+              </p>
             </Card>
 
             <Card title="Deposit" sub="Due before the workshop starts">
@@ -508,11 +575,12 @@ export function ConfirmStep({ s, dispatch }: StepProps) {
 
             <Card title="Cross-check before sending" action={<span className={`badge ${done === 4 ? 'ok' : ''}`}>{done} of 4</span>}>
               {!s.exact && <div className="notice warn"><IconAlert /><span>Generate the CAD model on the previous step before sending.</span></div>}
+              {sampleRates && !s.sent && <div className="notice bad"><IconAlert /><span>Live metal rates are not available, so this order cannot be priced yet. Check the connection, then open Rates and tap Refresh.</span></div>}
               <div className="checklist">
                 {checkItem('details', 'Customer name, phone and dates are correct')}
                 {checkItem('design', 'Ornament size, metal and stones are approved')}
-                {checkItem('price', 'Price and proportions are agreed')}
-                {checkItem('deposit', `Deposit of ${money(depositAmt)} collected`)}
+                {checkItem('price', <>Price of <b>{money(o.total)}</b> is agreed</>, sampleRates && !s.checks.price)}
+                {checkItem('deposit', <>Deposit of <b>{money(depositAmt)}</b> collected</>, !s.checks.price)}
               </div>
             </Card>
           </div>
@@ -520,11 +588,11 @@ export function ConfirmStep({ s, dispatch }: StepProps) {
       </Page>
       <ActionBar info={s.sent ? <>Sent · ready by <b>{fmtDate(ready)}</b></> : missing.length ? <>Missing: {missing.join(', ')}</> : <b>Ready to send</b>}>
         {s.sent
-          ? <button className="btn dark lg" onClick={() => dispatch({ type: 'newOrder', orderNo: newOrderNo() })}><IconPlus />Start a new order</button>
+          ? <button className="btn dark lg" onClick={() => dispatch({ type: 'newOrder', orderNo: newOrderNo(), id: uuid() })}><IconPlus />Start a new order</button>
           : (
             <>
               <Back onClick={() => dispatch({ type: 'go', step: 3 })} />
-              <button className="btn primary lg" disabled={missing.length > 0} onClick={() => dispatch({ type: 'send' })}><IconSend />Send to workshop</button>
+              <button className="btn primary lg" disabled={missing.length > 0} onClick={send}><IconSend />Send to workshop</button>
             </>
           )}
       </ActionBar>

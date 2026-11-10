@@ -21,15 +21,32 @@ interface RateState {
 
 const CACHE_KEY = 'gj-spot-rates';
 const REFRESH_MS = 10 * 60 * 1000;
+const LIVE_FOR_MS = 30 * 60 * 1000;
+let lastOk = 0;
 
 // Used only until the first successful fetch. Shown with a "Sample" badge.
-const SAMPLE: Spot = { gold: 4057.1, silver: 48.5, platinum: 1459.3, updatedAt: '', source: 'sample values' };
+const SAMPLE_SOURCE = 'sample values';
+const SAMPLE: Spot = { gold: 4057.1, silver: 48.5, platinum: 1459.3, updatedAt: '', source: SAMPLE_SOURCE };
+
+// Plausible USD-per-ounce ranges. A value outside them is treated as a bad quote, not a price.
+export const SPOT_BOUNDS = { gold: [500, 20000], silver: [5, 500], platinum: [200, 10000] } as const;
+
+export function isSpot(v: unknown): v is Spot {
+  if (!v || typeof v !== 'object') return false;
+  const s = v as Record<string, unknown>;
+  return (['gold', 'silver', 'platinum'] as const).every(k => {
+    const n = s[k];
+    return typeof n === 'number' && Number.isFinite(n) && n >= SPOT_BOUNDS[k][0] && n <= SPOT_BOUNDS[k][1];
+  }) && typeof s.updatedAt === 'string' && typeof s.source === 'string';
+}
+
+export const isSampleSpot = (s: Spot) => s.source === SAMPLE_SOURCE;
 
 function loadCached(): Spot | null {
   try {
     const raw = localStorage.getItem(CACHE_KEY);
-    const s = raw ? (JSON.parse(raw) as Spot) : null;
-    return s && s.gold > 0 && s.silver > 0 && s.platinum > 0 ? s : null;
+    const s: unknown = raw ? JSON.parse(raw) : null;
+    return isSpot(s) && !isSampleSpot(s) ? s : null;
   } catch {
     return null;
   }
@@ -49,17 +66,31 @@ export function getSpot(): Spot {
   return state.spot;
 }
 
-export async function refreshRates(): Promise<void> {
+let inflight: Promise<void> | null = null;
+
+export function refreshRates(): Promise<void> {
+  inflight ??= doRefresh().finally(() => { inflight = null; });
+  return inflight;
+}
+
+async function doRefresh(): Promise<void> {
   try {
-    const res = await fetch('/api/rates', { headers: { Accept: 'application/json' } });
+    // AbortController rather than AbortSignal.timeout, which older iPads lack.
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 15000);
+    const res = await fetch('/api/rates', { headers: { Accept: 'application/json' }, signal: ctl.signal }).finally(() => clearTimeout(timer));
     const body = await res.json().catch(() => null);
     if (!res.ok || !body || body.error) throw new Error(body?.error || `HTTP ${res.status}`);
-    const spot = body as Spot;
-    if (!(spot.gold > 0 && spot.silver > 0 && spot.platinum > 0)) throw new Error('Incomplete prices');
+    if (!isSpot(body)) throw new Error('Prices out of range');
+    const spot = body;
     try { localStorage.setItem(CACHE_KEY, JSON.stringify(spot)); } catch { /* storage unavailable */ }
+    lastOk = Date.now();
     set({ spot, status: 'live', error: null });
   } catch (e) {
-    set({ status: state.status === 'live' ? 'live' : state.spot === SAMPLE ? 'sample' : 'stale', error: e instanceof Error ? e.message : 'Rates unavailable' });
+    // Prices count as live only while the last good fetch is recent.
+    const fresh = lastOk > 0 && Date.now() - lastOk < LIVE_FOR_MS;
+    const message = e instanceof Error ? (e.name === 'AbortError' ? 'Timed out' : e.message) : 'Rates unavailable';
+    set({ status: fresh ? 'live' : isSampleSpot(state.spot) ? 'sample' : 'stale', error: message });
   }
 }
 

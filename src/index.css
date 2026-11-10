@@ -197,6 +197,10 @@ main{
 .field-label .req{color:var(--accent)}
 .field-label .opt{color:var(--text-3);font-weight:400;font-size:var(--fs-xs)}
 .field-help{font-size:var(--fs-xs);color:var(--text-3)}
+.field-error{font-size:var(--fs-xs);color:var(--bad);font-weight:500}
+.input[aria-invalid="true"]{border-color:var(--bad)}
+.input[aria-invalid="true"]:focus{box-shadow:0 0 0 4px color-mix(in srgb, var(--bad) 22%, transparent)}
+.btn[aria-disabled="true"]{opacity:.45}
 .input{
   height:48px;width:100%;padding:0 14px;border-radius:var(--r-md);
   border:1px solid var(--border);background:var(--surface);

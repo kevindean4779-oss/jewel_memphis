@@ -4,6 +4,7 @@ import { useOrder } from './order/state';
 import { CustomerStep, DesignStep, EstimateStep, CadStep, ConfirmStep } from './order/steps';
 import { RatesModal } from './order/shared';
 import { useRates } from './order/rates';
+import { useOutbox, useOutboxSync } from './order/orders';
 import { IconCheck, IconCloud, IconTrend } from './order/icons';
 
 const STEPS = [CustomerStep, DesignStep, EstimateStep, CadStep, ConfirmStep];
@@ -11,6 +12,10 @@ const STEPS = [CustomerStep, DesignStep, EstimateStep, CadStep, ConfirmStep];
 export default function App() {
   const { state: s, dispatch, savedAt } = useOrder();
   const { status: rateStatus } = useRates(true); // keeps prices live and re-prices on change
+  useOutboxSync(); // keeps sending queued orders to the database
+  const outbox = useOutbox();
+  const unsynced = outbox.filter(i => i.status !== 'saved');
+  const rejected = unsynced.some(i => i.status === 'rejected');
   const [ratesOpen, setRatesOpen] = useState(false);
   const Step = STEPS[s.step];
   const title = s.cust.ornament.trim() || 'New custom order';
@@ -62,6 +67,16 @@ export default function App() {
               })}
             </ol>
           </nav>
+
+          {unsynced.length > 0 && (
+            <span
+              className={`badge ${rejected ? 'bad' : 'warn'}`}
+              title={unsynced.map(i => `#${i.orderNo}: ${i.error ?? 'saving…'}`).join('\n')}
+              role="status"
+            >
+              {unsynced.length} {unsynced.length === 1 ? 'order' : 'orders'} not saved
+            </span>
+          )}
 
           <button type="button" className="btn ghost" onClick={openRates} aria-label={`Show metal rates (${rateStatus})`}>
             <IconTrend size={18} /><span className="rates-label">Rates</span>

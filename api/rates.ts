@@ -20,7 +20,7 @@ export interface SpotRates {
 type Fetcher = (key: string) => Promise<SpotRates>;
 
 async function getJson(url: string, headers: Record<string, string> = {}): Promise<any> {
-  const res = await fetch(url, { headers: { Accept: 'application/json', ...headers } });
+  const res = await fetch(url, { headers: { Accept: 'application/json', ...headers }, signal: AbortSignal.timeout(8000) });
   const body = await res.json().catch(() => null);
   if (!res.ok || !body) throw new Error(`Provider returned HTTP ${res.status}`);
   return body;
@@ -66,8 +66,14 @@ const PROVIDERS: Record<string, Fetcher> = {
   },
 };
 
-function valid(r: SpotRates): boolean {
-  return [r.gold, r.silver, r.platinum].every(v => typeof v === 'number' && Number.isFinite(v) && v > 0);
+// Plausible USD-per-ounce ranges (same as the app). Outside them, the quote is rejected.
+const BOUNDS = { gold: [500, 20000], silver: [5, 500], platinum: [200, 10000] } as const;
+
+export function valid(r: SpotRates): boolean {
+  return (['gold', 'silver', 'platinum'] as const).every(k => {
+    const v = r[k];
+    return typeof v === 'number' && Number.isFinite(v) && v >= BOUNDS[k][0] && v <= BOUNDS[k][1];
+  });
 }
 
 // Reused for 10 minutes by a warm server (and by `npm run dev`), on top of Vercel's edge cache.
@@ -82,7 +88,7 @@ export async function fetchSpot(env: Record<string, string | undefined>): Promis
   if (!provider) throw new Error(`Unknown METALS_API_PROVIDER "${name}"`);
   if (!key && name !== 'gold-api') throw new Error('METALS_API_KEY is not set');
   const r = await provider(key);
-  if (!valid(r)) throw new Error('Provider returned incomplete prices');
+  if (!valid(r)) throw new Error('Provider returned missing or implausible prices');
   memo = { at: Date.now(), rates: r };
   return r;
 }
