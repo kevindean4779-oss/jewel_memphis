@@ -1,8 +1,8 @@
 import type { OrderState } from './types';
+import { authed, session } from '../auth/client';
 
-// Shared orders go through the /api/orders route, which checks the staff PIN and
-// holds the database key. Orders always stay in this device's draft even when sync fails.
-const PIN_KEY = 'custom-order-staff-pin';
+// Shared orders go through /api/orders with the signed-in session. The server checks the
+// orders permission on every request.
 
 export interface OrderRow {
   id: string;
@@ -13,32 +13,10 @@ export interface OrderRow {
   updated_at: string;
 }
 
-export function getPin(): string | null {
-  try { return localStorage.getItem(PIN_KEY); } catch { return null; }
-}
+export const isSignedIn = (): boolean => session.user !== null;
 
-export function setPin(pin: string): void {
-  try { localStorage.setItem(PIN_KEY, pin); } catch { /* keep for this session only */ }
-}
-
-export function clearPin(): void {
-  try { localStorage.removeItem(PIN_KEY); } catch { /* nothing to clear */ }
-}
-
-export class PinError extends Error {}
-
-async function api(path: string, init: RequestInit = {}, pin: string): Promise<Response> {
-  const res = await fetch(path, {
-    ...init,
-    headers: { 'content-type': 'application/json', 'x-staff-pin': pin, ...(init.headers ?? {}) },
-  });
-  if (res.status === 401) throw new PinError('Wrong PIN');
-  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-  return res;
-}
-
-export async function saveOrderRemote(s: OrderState, pin: string): Promise<void> {
-  await api('/api/orders', {
+export async function saveOrderRemote(s: OrderState): Promise<void> {
+  await authed('/api/orders', {
     method: 'POST',
     body: JSON.stringify({
       id: s.orderNo,
@@ -47,10 +25,9 @@ export async function saveOrderRemote(s: OrderState, pin: string): Promise<void>
       status: s.sent ? 'sent' : 'draft',
       data: s,
     }),
-  }, pin);
+  });
 }
 
-export async function listOrdersRemote(pin: string): Promise<OrderRow[]> {
-  const res = await api('/api/orders', { method: 'GET' }, pin);
-  return (await res.json()) as OrderRow[];
+export async function listOrdersRemote(): Promise<OrderRow[]> {
+  return authed<OrderRow[]>('/api/orders', { method: 'GET' });
 }
