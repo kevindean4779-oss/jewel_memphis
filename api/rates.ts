@@ -7,6 +7,10 @@ const TTL_HOURS = Number(process.env.RATE_TTL_HOURS ?? 24);
 
 // Sanity bounds in USD per troy ounce. A value outside these is rejected, so a
 // wrong response shape can't put nonsense prices into quotes.
+// After a provider failure, don't retry for a while: keeps a flaky provider from spending quota.
+const RETRY_AFTER_MS = 10 * 60_000;
+let lastFailureAt = 0;
+
 const BOUNDS = { gold: [500, 10000], silver: [5, 200], platinum: [300, 5000] } as const;
 
 interface SpotOz { gold: number; silver: number; platinum: number }
@@ -69,6 +73,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (data && Date.now() - Date.parse(data.fetched_at) < TTL_HOURS * 3600_000) {
       return res.json(toClient(data));
     }
+    if (data && Date.now() - lastFailureAt < RETRY_AFTER_MS) {
+      return res.json(toClient(data, true));
+    }
     try {
       const { oz, provider } = await fetchSpot();
       const row = { id: 'spot', gold: oz.gold, silver: oz.silver, platinum: oz.platinum, provider, fetched_at: new Date().toISOString() };
@@ -77,6 +84,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.json(toClient(row));
     } catch (providerErr) {
       console.error('rate refresh failed', providerErr);
+      lastFailureAt = Date.now();
       if (data) return res.json(toClient(data, true)); // last good prices
       return res.status(503).json({ error: 'Live rates unavailable' });
     }
