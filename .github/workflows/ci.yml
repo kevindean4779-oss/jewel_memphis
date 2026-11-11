@@ -1,0 +1,54 @@
+name: CI
+
+# Runs on every push to a Claude branch or main, and on every pull request to main.
+on:
+  push:
+    branches: [main, 'claude/**']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Type check, tests and production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.4'
+
+      - name: Install (lockfile must match package.json)
+        run: bun install --frozen-lockfile
+
+      - name: Type check (app and API routes)
+        run: bun run lint
+
+      - name: Unit tests
+        run: bun run test
+
+      - name: Production build
+        run: bun run build
+
+      - name: Built output has required files
+        run: |
+          test -f dist/index.html
+          test -f dist/sw.js
+          test -f dist/manifest.webmanifest
+          test -f dist/apple-touch-icon.png
+
+      - name: No server secrets in the browser bundle
+        run: |
+          if grep -rlE "SUPABASE_SERVICE_ROLE_KEY|METALS_API_KEY|sb_secret_|x-access-token" dist; then
+            echo "::error::A server secret name or key pattern is in the client bundle"
+            exit 1
+          fi

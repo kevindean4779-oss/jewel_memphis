@@ -1,0 +1,67 @@
+name: Production smoke test
+
+# Runs after each successful production deployment (Vercel reports it as a
+# deployment_status event), every morning as a backstop, and on demand.
+on:
+  deployment_status:
+  schedule:
+    - cron: '0 12 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Check the live site
+    if: >-
+      github.event_name != 'deployment_status' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment.environment == 'Production')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      # Vercel sets target_url to the deployment. Scheduled runs use the repo variable.
+      SITE_URL: ${{ github.event.deployment_status.target_url || vars.PRODUCTION_URL }}
+    steps:
+      - name: Check the site URL is set
+        run: |
+          if [ -z "$SITE_URL" ]; then
+            echo "::error::Set the repository variable PRODUCTION_URL, e.g. https://your-site.vercel.app"
+            exit 1
+          fi
+          echo "Testing $SITE_URL"
+
+      - name: Home page loads and is the custom order app
+        run: |
+          code=$(curl -sS -o page.html -w "%{http_code}" --max-time 20 "$SITE_URL/")
+          test "$code" = "200" || { echo "::error::Home page returned $code"; exit 1; }
+          grep -q "<div id=\"root\">" page.html || { echo "::error::Home page is not the app"; exit 1; }
+          grep -q "Golden Jewelers" page.html || { echo "::error::Page title missing"; exit 1; }
+
+      - name: Install manifest and service worker are served
+        run: |
+          for path in /manifest.webmanifest /sw.js /apple-touch-icon.png; do
+            code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 20 "$SITE_URL$path")
+            test "$code" = "200" || { echo "::error::$path returned $code"; exit 1; }
+          done
+
+      - name: Orders route refuses requests without the staff PIN
+        run: |
+          code=$(curl -sS -o orders.json -w "%{http_code}" --max-time 20 "$SITE_URL/api/orders")
+          test "$code" = "401" || { echo "::error::/api/orders returned $code, expected 401 (route missing or auth broken)"; exit 1; }
+          grep -q '"error"' orders.json || { echo "::error::/api/orders did not return the JSON error (got a web page instead)"; exit 1; }
+
+      - name: Rates route answers with live prices or a clear fallback
+        run: |
+          code=$(curl -sS -o rates.json -w "%{http_code}" --max-time 30 "$SITE_URL/api/rates")
+          case "$code" in
+            200)
+              grep -q '"gold24Gram"' rates.json || { echo "::error::/api/rates 200 but no prices"; exit 1; }
+              ;;
+            503)
+              echo "::warning::Live prices unavailable (503). The app will show owner rates. Check the metals key and the provider."
+              ;;
+            *)
+              echo "::error::/api/rates returned $code"; exit 1 ;;
+          esac
