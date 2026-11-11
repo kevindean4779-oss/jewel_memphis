@@ -6,7 +6,6 @@ import { RatesModal, SettingsModal, OrdersModal } from './order/modals';
 import { MarketProvider, useMarket } from './order/market';
 import { WorkshopTicket } from './order/ticket';
 import { newOrderNo } from './order/state';
-import { supabase } from './order/db';
 
 const STEPS = [CustomerStep, DesignStep, EstimateStep, CadStep, ConfirmStep];
 type Modal = 'rates' | 'settings' | 'orders' | null;
@@ -32,7 +31,7 @@ function Counter() {
             <div className="sub">
               Order #{s.orderNo} · {s.cust.name.trim() || 'Customer'}
               {savedAt && <> · <span style={{ color: 'var(--faint)' }}>Draft saved {savedAt}</span></>}
-              {supabase && syncError && <> · <span style={{ color: 'var(--bad)' }}>{syncError}</span></>}
+              {syncError && <> · <span style={{ color: 'var(--bad)' }}>{syncError}</span></>}
             </div>
           </div>
         </div>

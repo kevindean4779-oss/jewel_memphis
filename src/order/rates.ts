@@ -20,50 +20,16 @@ export function manualRates(cfg: OwnerConfig): Rates {
   };
 }
 
-// Live spot prices from goldapi.io (free tier). The key is read from the build,
-// so it is visible to anyone who opens the page: move the call behind a
-// server function before wide use.
-const API_KEY = import.meta.env.VITE_GOLDAPI_KEY as string | undefined;
-const CACHE_KEY = 'custom-order-live-rates';
-const TTL_HOURS = Number(import.meta.env.VITE_RATE_TTL_HOURS ?? 24);
-
-interface Cached { at: number; rates: Rates }
-
-async function fetchGram(symbol: 'XAU' | 'XAG' | 'XPT'): Promise<number> {
-  const res = await fetch(`https://www.goldapi.io/api/${symbol}/USD`, {
-    headers: { 'x-access-token': API_KEY ?? '', 'Content-Type': 'application/json' },
-  });
-  if (!res.ok) throw new Error(`${symbol} ${res.status}`);
-  const body = (await res.json()) as { price_gram_24k?: number };
-  if (!(body.price_gram_24k && body.price_gram_24k > 0)) throw new Error(`${symbol} no price`);
-  return body.price_gram_24k;
-}
-
-function readCache(): Cached | null {
+// Live prices come from /api/rates, which caches them on the server.
+// Returns null when the server or provider is unavailable, so the caller falls back to owner rates.
+export async function fetchLiveRates(): Promise<Rates | null> {
   try {
-    const raw = localStorage.getItem(CACHE_KEY);
-    return raw ? (JSON.parse(raw) as Cached) : null;
+    const res = await fetch('/api/rates', { cache: 'no-store' });
+    if (!res.ok) return null;
+    const body = (await res.json()) as Omit<Rates, 'source'> & { source: 'live' };
+    if (!(body.gold24Gram > 0 && body.silverGram > 0 && body.platinumGram > 0)) return null;
+    return { gold24Gram: body.gold24Gram, silverGram: body.silverGram, platinumGram: body.platinumGram, source: 'live', time: body.time };
   } catch {
     return null;
-  }
-}
-
-// Returns fresh live rates, cached rates within the TTL, or null when unavailable.
-export async function fetchLiveRates(): Promise<Rates | null> {
-  const cached = readCache();
-  const fresh = cached && Date.now() - cached.at < TTL_HOURS * 3600_000;
-  if (fresh) return { ...cached.rates, source: 'live' };
-  if (!API_KEY) return cached ? { ...cached.rates, source: 'live' } : null;
-  try {
-    const [gold24Gram, silverGram, platinumGram] = await Promise.all([
-      fetchGram('XAU'), fetchGram('XAG'), fetchGram('XPT'),
-    ]);
-    const time = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-    const rates: Rates = { gold24Gram, silverGram, platinumGram, source: 'live', time };
-    localStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), rates } satisfies Cached));
-    return rates;
-  } catch {
-    // Offline or quota reached: fall back to the last good live rates, if any.
-    return cached ? { ...cached.rates, source: 'live', time: `${cached.rates.time} (cached)` } : null;
   }
 }

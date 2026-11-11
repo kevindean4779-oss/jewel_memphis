@@ -3,7 +3,7 @@ import { DRAFT_KEY, type Metal, type StoneKey, type Mode } from './data';
 import { DEFAULT_CONFIG } from './config';
 import { allCadOk } from './pricing';
 import { nowTime } from './format';
-import { saveOrderRemote, supabase } from './db';
+import { getPin, saveOrderRemote } from './db';
 import type { CheckKey, Customer, Dims, OrderState } from './types';
 
 export type Action =
@@ -143,10 +143,11 @@ export function useOrder() {
   }, [state]);
 
   useEffect(() => {
-    if (!supabase) return;
+    const pin = getPin();
+    if (!pin) return; // no staff PIN on this device: keep orders local
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => {
-      saveOrderRemote(state)
+      saveOrderRemote(state, pin)
         .then(() => setSyncError(null))
         .catch(() => setSyncError('Not synced. Changes are saved on this device.'));
     }, 1200);
