@@ -1,5 +1,5 @@
 // Offline app shell for the counter tablet. Bump CACHE when the app changes.
-const CACHE = 'gj-custom-orders-v3';
+const CACHE = 'gj-custom-order-v1';
 const SHELL = ['/', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png'];
 
 self.addEventListener('install', event => {
@@ -18,7 +18,7 @@ self.addEventListener('fetch', event => {
   const req = event.request;
   const url = new URL(req.url);
   if (req.method !== 'GET' || url.origin !== self.location.origin) return;
-  // Live prices must always come from the network; the app keeps its own offline copy.
+  // Live data (rates, orders) always goes to the network, never the cache.
   if (url.pathname.startsWith('/api/')) return;
 
   // Pages: try the network first so updates arrive, fall back to the cached shell offline.
