@@ -23,6 +23,11 @@ export function cookieValue(req: VercelRequest, name: string): string | null {
 
 export const REFRESH_COOKIE = 'gj_refresh';
 
+export function bearerToken(req: VercelRequest): string | null {
+  const h = req.headers.authorization;
+  return typeof h === 'string' && h.startsWith('Bearer ') ? h.slice(7) : null;
+}
+
 export function refreshCookie(value: string): string {
   return `${REFRESH_COOKIE}=${encodeURIComponent(value)}; Path=/api/auth; HttpOnly; Secure; SameSite=Lax; Max-Age=${TIMING.refreshTokenSeconds}`;
 }
