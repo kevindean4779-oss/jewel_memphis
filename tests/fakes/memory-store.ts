@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { AuditEntry, SessionRow, Store, TokenRow, TokenType, UserRow, UserStatus } from '../../api/_lib/store';
+import type { AdminUserQuery, AuditEntry, AuditRow, SessionRow, Store, TokenRow, TokenType, UserRow, UserStatus } from '../../api/_lib/store';
 import type { Role } from '../../api/_lib/rbac';
 
 // In-memory Store for service tests. Behaves like the Postgres version
@@ -12,6 +12,32 @@ export class MemoryStore implements Store {
   audit: AuditEntry[] = [];
   private hits = new Map<string, { count: number; start: number }>();
   clock = () => Date.now();
+
+  async listUsers(q: AdminUserQuery) {
+    let rows = this.users.filter(u => (q.status === 'deleted' ? Boolean(u.deleted_at) : !u.deleted_at));
+    if (q.status && q.status !== 'deleted') rows = rows.filter(u => u.status === q.status);
+    if (q.role) rows = rows.filter(u => u.role === q.role);
+    if (q.search) {
+      const term = q.search.toLowerCase();
+      rows = rows.filter(u => u.email.includes(term) || u.name.toLowerCase().includes(term));
+    }
+    const key = q.sort;
+    rows = [...rows].sort((a, b) => {
+      const x = (a[key as keyof UserRow] ?? '') as string;
+      const y = (b[key as keyof UserRow] ?? '') as string;
+      return (x < y ? -1 : x > y ? 1 : 0) * (q.dir === 'asc' ? 1 : -1);
+    });
+    const from = (q.page - 1) * q.pageSize;
+    return { rows: rows.slice(from, from + q.pageSize), total: rows.length };
+  }
+  async listAudit(page: number, pageSize: number) {
+    const all: AuditRow[] = this.audit.map((a, i) => ({ ...a, id: i + 1, occurred_at: new Date(this.clock()).toISOString() }));
+    const rows = [...all].reverse();
+    return { rows: rows.slice((page - 1) * pageSize, page * pageSize), total: rows.length };
+  }
+  async countActiveAdmins() {
+    return this.users.filter(u => u.role === 'admin' && u.status === 'active' && !u.deleted_at).length;
+  }
 
   async getUserByEmail(email: string) {
     return this.users.find(u => u.email === email && !u.deleted_at) ?? null;

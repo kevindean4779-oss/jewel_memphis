@@ -49,6 +49,11 @@ export interface TokenRow {
   created_at: string;
 }
 
+export interface AuditRow extends AuditEntry {
+  id: number;
+  occurred_at: string;
+}
+
 export interface AuditEntry {
   actor_id: string | null;
   action: string;
@@ -58,7 +63,20 @@ export interface AuditEntry {
   details?: Record<string, unknown>;
 }
 
+export interface AdminUserQuery {
+  search?: string;
+  role?: Role;
+  status?: UserStatus | 'deleted';
+  sort: 'email' | 'name' | 'role' | 'status' | 'created_at' | 'last_login_at';
+  dir: 'asc' | 'desc';
+  page: number;
+  pageSize: number;
+}
+
 export interface Store {
+  listUsers(query: AdminUserQuery): Promise<{ rows: UserRow[]; total: number }>;
+  listAudit(page: number, pageSize: number): Promise<{ rows: AuditRow[]; total: number }>;
+  countActiveAdmins(): Promise<number>;
   getUserByEmail(email: string): Promise<UserRow | null>;
   getUserById(id: string): Promise<UserRow | null>;
   createUser(row: Partial<UserRow> & { email: string; role: Role; status: UserStatus }): Promise<UserRow>;
@@ -232,6 +250,47 @@ export class SupabaseStore implements Store {
     if (error) throw new Error(error.message);
     const row = Array.isArray(data) ? data[0] : data;
     return { allowed: Boolean(row?.allowed), retryAfterSeconds: Number(row?.retry_after_seconds ?? windowSeconds) };
+  }
+
+  async listUsers(q: AdminUserQuery) {
+    const cols = 'id, email, name, role, status, email_verified_at, totp_enabled, last_login_at, locked_until, created_at, deleted_at';
+    let query = this.db.from('users').select(cols, { count: 'exact' });
+    query = q.status === 'deleted' ? query.not('deleted_at', 'is', null) : query.is('deleted_at', null);
+    if (q.status && q.status !== 'deleted') query = query.eq('status', q.status);
+    if (q.role) query = query.eq('role', q.role);
+    if (q.search) {
+      // Strip characters that have meaning in PostgREST filter syntax.
+      const term = q.search.replace(/[%_,()*\\]/g, '').trim();
+      if (term) query = query.or(`email.ilike.%${term}%,name.ilike.%${term}%`);
+    }
+    const from = (q.page - 1) * q.pageSize;
+    const { data, error, count } = await query
+      .order(q.sort, { ascending: q.dir === 'asc', nullsFirst: false })
+      .range(from, from + q.pageSize - 1);
+    if (error) throw new Error(error.message);
+    return { rows: (data ?? []) as UserRow[], total: count ?? 0 };
+  }
+
+  async listAudit(page: number, pageSize: number) {
+    const from = (page - 1) * pageSize;
+    const { data, error, count } = await this.db
+      .from('audit_log')
+      .select('*', { count: 'exact' })
+      .order('id', { ascending: false })
+      .range(from, from + pageSize - 1);
+    if (error) throw new Error(error.message);
+    return { rows: (data ?? []) as AuditRow[], total: count ?? 0 };
+  }
+
+  async countActiveAdmins() {
+    const { count, error } = await this.db
+      .from('users')
+      .select('id', { count: 'exact', head: true })
+      .eq('role', 'admin')
+      .eq('status', 'active')
+      .is('deleted_at', null);
+    if (error) throw new Error(error.message);
+    return count ?? 0;
   }
 
   async setUserAccess(actorId: string, targetId: string, change: { role?: Role; status?: UserStatus; delete?: boolean }) {

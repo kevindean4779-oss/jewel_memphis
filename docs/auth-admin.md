@@ -1,0 +1,116 @@
+# Accounts, sessions and admin (feature/auth-admin)
+
+## Who can do what
+
+| Role | Can |
+|---|---|
+| **User** | Use the counter (orders). Manage their own sessions and 2FA. |
+| **Manager** | Everything a User can, plus list users, invite Users, and edit Users. Cannot change roles, suspend, delete, or touch Admins. |
+| **Admin** | Everything. Manage all accounts, change roles, suspend, delete, and read the audit log. |
+
+Permissions are checked in code (`api/_lib/rbac.ts`). Roles only map to permissions.
+
+## Endpoints
+
+Auth: `POST` routes need the app's `Origin` and `X-Requested-With: app` headers. Signed-in routes need `Authorization: Bearer <accessToken>`.
+
+| Method | Route | Auth | Permission |
+|---|---|---|---|
+| POST | `/api/auth/login` | none, rate-limited | none |
+| POST | `/api/auth/login/2fa` | pending sign-in token | none |
+| POST | `/api/auth/refresh` | refresh cookie | none |
+| POST | `/api/auth/logout` | refresh cookie | none |
+| POST | `/api/auth/forgot-password` | none, rate-limited | none |
+| POST | `/api/auth/reset-password` | one-time token | none |
+| POST | `/api/auth/verify-email` | one-time token | none |
+| POST | `/api/auth/resend-verification` | none, rate-limited | none |
+| POST | `/api/auth/accept-invite` | one-time token | none |
+| GET | `/api/auth/me` | signed in | none |
+| GET | `/api/auth/sessions` | signed in | own sessions |
+| DELETE | `/api/auth/sessions` | signed in | own sessions (all) |
+| DELETE | `/api/auth/sessions/:id` | signed in | own session |
+| POST | `/api/auth/2fa/setup` | signed in | own account |
+| POST | `/api/auth/2fa/enable` | signed in | own account |
+| POST | `/api/auth/2fa/disable` | signed in | own account |
+| GET | `/api/admin/users` | signed in | `users:read` |
+| POST | `/api/admin/users` | signed in | `users:invite` (Admin role needs `users:role`) |
+| GET | `/api/admin/users/:id` | signed in | `users:read` |
+| PATCH | `/api/admin/users/:id` | signed in | `users:edit` (role change needs `users:role`) |
+| POST | `/api/admin/users/:id/suspend` | signed in | `users:suspend` |
+| POST | `/api/admin/users/:id/reactivate` | signed in | `users:suspend` |
+| DELETE | `/api/admin/users/:id` | signed in | `users:delete` (soft delete) |
+| GET | `/api/admin/audit` | signed in | `audit:read` |
+| POST | `/api/admin/bootstrap` | `SETUP_TOKEN` | none. Works only while no active Admin exists. |
+| GET / POST | `/api/orders` | signed in with `orders:use`, or the staff PIN while `STAFF_PIN` is set | |
+| GET | `/api/rates` | none | |
+
+## Safety rules
+
+- Nobody can delete or demote themselves, or suspend themselves.
+- The last active Admin can't be demoted, suspended or deleted. The database enforces this with a locked check, so two Admins acting at once can't both remove the last one.
+- Managers can act only on Users, not on Managers or Admins.
+- Every admin action is written to `audit_log`: actor, action, target, time, IP, user agent. The table rejects UPDATE, DELETE and TRUNCATE for every role.
+- Suspending or deleting a user ends their sessions at once. A changed role takes effect on the next request.
+
+## Database
+
+Migrations, in order:
+1. `supabase/migrations/20261111000000_auth_admin.sql`: users, sessions, auth_tokens, backup_codes, audit_log, rate_limits, the rate-limit function, the last-Admin guard, and row-level security.
+2. `supabase/migrations/20261111000100_totp_replay.sql`: stores the last used 2FA time step.
+
+`supabase/schema.sql` is the earlier baseline. Apply the migrations after it.
+
+## Existing users
+
+There are no accounts in the database before this change. Staff have only the shared PIN.
+- The migration adds no users, so nobody loses access by it.
+- The first Admin is created with `POST /api/admin/bootstrap` (see Setup).
+- Other staff get an invitation email from an Admin or Manager. Their accounts start as User.
+- The staff PIN keeps working until you remove `STAFF_PIN`. Remove it once everyone has an account.
+
+## Setup
+
+1. Apply the two migrations in the Supabase SQL editor.
+2. In Vercel, set these (server only, no `VITE_` prefix):
+   - `APP_URL`: your site, e.g. `https://your-site.vercel.app`
+   - `JWT_SECRET`: 48 random characters, e.g. `openssl rand -base64 48`
+   - `TOTP_ENCRYPTION_KEY`: `openssl rand -base64 32`
+   - `RESEND_API_KEY` and `EMAIL_FROM`: email (verify your sending domain in Resend first)
+   - `SETUP_TOKEN`: a random string, for the first Admin only
+3. Redeploy, then create the first Admin:
+
+```bash
+curl -X POST https://your-site.vercel.app/api/admin/bootstrap \
+  -H 'Content-Type: application/json' -H 'Origin: https://your-site.vercel.app' -H 'X-Requested-With: app' \
+  -d '{"setupToken":"<SETUP_TOKEN>","email":"owner@example.com","name":"Owner","password":"at least 12 characters"}'
+```
+
+4. Remove `SETUP_TOKEN` from Vercel. It's no longer needed.
+5. Invite staff from the admin screen, then remove `STAFF_PIN` once they've accepted.
+
+## Tests
+
+`npm test` runs 125 tests:
+- `tests/db/migration.test.ts`: the migration on Postgres (audit immutability, rate limiter, last-Admin guard, RLS).
+- `tests/auth-service.test.ts`: sign-in, lockout, rotation and reuse detection, immediate revocation, reset, verification, invitations, 2FA and replay protection, audit.
+- `tests/admin.test.ts`: API access from outside (401/403/CSRF), manager limits, listing, invites, role changes, guardrails, audit, first-Admin setup.
+- `tests/http.test.ts`: CSRF check, cookie flags, token types, encryption, validation.
+
+The Supabase store (`api/_lib/store.ts`) is tested only through the migration tests. Check it against the real project (see the manual checklist).
+
+## Manual checklist
+
+- [ ] Bootstrap creates the first Admin; a second bootstrap call returns 404.
+- [ ] Sign-in works; a wrong password and an unknown email look the same.
+- [ ] Five wrong passwords lock the account for 15 minutes.
+- [ ] Forgot-password gives the same reply for a real and a fake email. Reset link works once.
+- [ ] Refresh cookie has HttpOnly, Secure and SameSite=Lax (browser devtools).
+- [ ] Reusing an old refresh token signs out every session from that login.
+- [ ] Sign out on one device doesn't affect another; "sign out everywhere" affects all.
+- [ ] Suspend a user while they're signed in: their next request fails.
+- [ ] Manager can invite a User but not an Admin, and can't suspend.
+- [ ] A User calling `/api/admin/users` directly gets 403.
+- [ ] Admin can't delete or demote themselves; can't remove the last Admin.
+- [ ] Audit log shows each action with actor, IP and user agent. Audit entries can't be edited or deleted in the Supabase table editor (the trigger rejects it).
+- [ ] 2FA: setup, enable with the app's code, sign in with a code, sign in with a backup code, backup code can't be reused.
+- [ ] Counter orders still save for a signed-in staff account, and with the PIN while `STAFF_PIN` is set.
