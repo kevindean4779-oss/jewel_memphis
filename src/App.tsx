@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { STEP_NAMES } from './order/data';
 import { useOrder } from './order/state';
 import { CustomerStep, DesignStep, EstimateStep, CadStep, ConfirmStep } from './order/steps';
@@ -6,12 +6,17 @@ import { RatesModal, SettingsModal, OrdersModal } from './order/modals';
 import { MarketProvider, useMarket } from './order/market';
 import { WorkshopTicket } from './order/ticket';
 import { newOrderNo } from './order/state';
+import { loadSession, session } from './auth/client';
+import { AuthScreen, screenFromUrl } from './auth/AuthScreens';
+import { AccountModal } from './auth/Account';
+import { TeamModal } from './auth/Team';
 
 const STEPS = [CustomerStep, DesignStep, EstimateStep, CadStep, ConfirmStep];
-type Modal = 'rates' | 'settings' | 'orders' | null;
+type Modal = 'rates' | 'settings' | 'orders' | 'account' | 'team' | null;
 
 function Counter() {
   const { mk } = useMarket();
+  const me = useSyncExternalStore(session.subscribe, () => session.user);
   const { state: s, dispatch, savedAt, syncError } = useOrder();
   const [modal, setModal] = useState<Modal>(null);
   const Step = STEPS[s.step];
@@ -57,6 +62,8 @@ function Counter() {
           Rates <span className="faint">{mk.rates.source === 'live' ? 'live' : 'owner'}</span>
         </button>
         <button className="btn" onClick={() => setModal('settings')}>Settings</button>
+        {me && (me.role === 'admin' || me.role === 'manager') && <button className="btn" onClick={() => setModal('team')}>Team</button>}
+        <button className="btn" onClick={() => setModal('account')}>{me?.name || me?.email}</button>
         <button className="btn" onClick={() => dispatch({ type: 'newOrder', orderNo: newOrderNo() })}>New order</button>
       </div>
 
@@ -67,6 +74,8 @@ function Counter() {
       <WorkshopTicket s={s} />
 
       {modal === 'rates' && <RatesModal mk={mk} onClose={() => setModal(null)} />}
+      {modal === 'account' && <AccountModal onClose={() => setModal(null)} />}
+      {modal === 'team' && <TeamModal onClose={() => setModal(null)} />}
       {modal === 'settings' && <SettingsModal onClose={() => setModal(null)} />}
       {modal === 'orders' && (
         <OrdersModal
@@ -78,10 +87,25 @@ function Counter() {
   );
 }
 
+// The counter is behind sign-in. Email links (reset, invite, verify) open their own screen.
+function Gate() {
+  const [ready, setReady] = useState(false);
+  const user = useSyncExternalStore(session.subscribe, () => session.user);
+  useEffect(() => {
+    void loadSession().finally(() => setReady(true));
+  }, []);
+  if (!ready) return <div className="app" style={{ alignItems: 'center', justifyContent: 'center' }}><p className="muted">Loading…</p></div>;
+  if (!user) {
+    const { screen, token } = screenFromUrl();
+    return <AuthScreen key={screen + token} screen={screen} token={token} />;
+  }
+  return <Counter />;
+}
+
 export default function App() {
   return (
     <MarketProvider>
-      <Counter />
+      <Gate />
     </MarketProvider>
   );
 }
