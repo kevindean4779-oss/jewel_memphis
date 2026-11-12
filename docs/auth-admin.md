@@ -57,8 +57,20 @@ Auth: `POST` routes need the app's `Origin` and `X-Requested-With: app` headers.
 Migrations, in order:
 1. `supabase/migrations/20261111000000_auth_admin.sql`: users, sessions, auth_tokens, backup_codes, audit_log, rate_limits, the rate-limit function, the last-Admin guard, and row-level security.
 2. `supabase/migrations/20261111000100_totp_replay.sql`: stores the last used 2FA time step.
+3. `supabase/migrations/20261112000000_pin_function_search_path.sql`: pins the search path on the three functions (clears a Supabase security warning).
 
 `supabase/schema.sql` is the earlier baseline. Apply the migrations after it.
+
+**Status:** 1–3 are applied to the Supabase project (checked 2026-11-12). The project's security advisor shows only the expected notices: these tables have no public policies, because only the server reads and writes them.
+
+Verified on the live project:
+- All 6 auth tables exist with row-level security on.
+- Rate limiter allows 5 attempts and blocks the 6th.
+- The audit log rejects UPDATE, DELETE and TRUNCATE.
+- The last-Admin guard refuses to demote the only active Admin, and allows it when another Admin exists.
+- With the public key, reads return no rows and writes and function calls are refused.
+
+Not yet verified: the server's Supabase client (`api/_lib/store.ts`) with the service role key. That needs a Vercel deployment or a local test with the key.
 
 ## Existing users
 
@@ -99,6 +111,8 @@ curl -X POST https://your-site.vercel.app/api/admin/bootstrap \
 The Supabase store (`api/_lib/store.ts`) is tested only through the migration tests. Check it against the real project (see the manual checklist).
 
 ## Manual checklist
+
+Automated browser run (2026-11-12, against a local build with mocked API responses): sign-in with 2FA, the team list and filters, the audit tab, the account panel, sign-out, the reset link, the invite link, and the password length check all pass, with no page errors. Not yet done: a real iPad, and the live site.
 
 - [ ] Bootstrap creates the first Admin; a second bootstrap call returns 404.
 - [ ] Sign-in works; a wrong password and an unknown email look the same.
