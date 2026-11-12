@@ -91,25 +91,72 @@ There are no accounts in the database before this change. Staff have only the sh
 - Staff accounts are created from **Team** (see above).
 - The staff PIN keeps working until you remove `STAFF_PIN`. Remove it once every staff member has an account.
 
-## Setup
+## Owner setup
 
-1. Apply the two migrations in the Supabase SQL editor.
-2. In Vercel, set these (server only, no `VITE_` prefix):
-   - `APP_URL`: your site, e.g. `https://your-site.vercel.app`
-   - `JWT_SECRET`: 48 random characters, e.g. `openssl rand -base64 48`
-   - `TOTP_ENCRYPTION_KEY`: `openssl rand -base64 32`
-   - `RESEND_API_KEY` and `EMAIL_FROM`: email (verify your sending domain in Resend first)
-   - `SETUP_TOKEN`: a random string, for the first Admin only
-3. Redeploy, then create the owner account:
+Do this once, before anyone else has an account. Staff are added afterwards from **Team**.
+
+### Before you start
+- The four migrations are applied in the Supabase SQL editor, in order (see Database).
+- You have a computer with a terminal (Terminal on Mac, PowerShell or Git Bash on Windows). The setup call is a single command, and an iPad can't run it.
+- You know your site address, e.g. `https://golden-jewelers.vercel.app`. Use exactly the address shown in Vercel, with no trailing slash.
+- Email is **not** needed for owner setup. You can set it up later, for forgot-password links.
+
+### 1. Make the secret values
+Run these on your computer, and keep the output somewhere safe (a password manager). Don't paste them into chat or email.
 
 ```bash
-curl -X POST https://your-site.vercel.app/api/admin/bootstrap \
-  -H 'Content-Type: application/json' -H 'Origin: https://your-site.vercel.app' -H 'X-Requested-With: app' \
-  -d '{"setupToken":"<SETUP_TOKEN>","email":"owner@example.com","name":"Owner","password":"at least 12 characters"}'
+openssl rand -base64 48   # JWT_SECRET
+openssl rand -base64 32   # TOTP_ENCRYPTION_KEY
+openssl rand -base64 32   # SETUP_TOKEN
 ```
 
-4. Remove `SETUP_TOKEN` from Vercel. It's no longer needed.
-5. Add staff from **Team → Add a staff account**, then remove `STAFF_PIN` once everyone has signed in.
+### 2. Add them in Vercel
+Vercel → your project → **Settings → Environment Variables**. For each one, choose **Production** (and **Preview** if you want to test branches). Leave out any `VITE_` or `NEXT_PUBLIC_` prefix.
+
+| Name | Value |
+|---|---|
+| `APP_URL` | your site address, e.g. `https://golden-jewelers.vercel.app` |
+| `JWT_SECRET` | from step 1 |
+| `TOTP_ENCRYPTION_KEY` | from step 1 |
+| `SETUP_TOKEN` | from step 1. Only used for the owner setup. |
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | already set for the counter. Leave as they are. |
+
+Add `RESEND_API_KEY` and `EMAIL_FROM` later, when you set up email.
+
+### 3. Deploy
+Vercel deploys again when the variables change. Wait for the deployment to show **Ready**. If you're using a branch, check that it's the one you expect.
+
+### 4. Create the owner account
+In Terminal, replace the four placeholders and run:
+
+```bash
+curl -X POST https://YOUR-SITE/api/admin/bootstrap \
+  -H 'Content-Type: application/json' \
+  -H 'Origin: https://YOUR-SITE' \
+  -H 'X-Requested-With: app' \
+  -d '{"setupToken":"YOUR_SETUP_TOKEN","email":"owner@example.com","name":"Owner name","password":"choose a password of 12+ characters"}'
+```
+
+- A reply of `{"ok":true}` means the owner account now exists.
+- A reply of `Not found` means one of these: the `SETUP_TOKEN` is wrong or missing from Vercel, an owner already exists, or the variable was added after the last deployment. Check the values, redeploy, and try again.
+- Clear the command from your shell history afterwards (for example, close the Terminal window), because it contains the setup token and the password.
+
+### 5. Sign in and secure the account
+1. Open your site and sign in with the owner email and password.
+2. Open your account (the button with your name, top right) and turn on **two-factor sign-in**. Scan or enter the key in an authenticator app, enter the 6-digit code, and **save the backup codes** somewhere safe.
+3. Open **Team**. You're ready to add staff (see [How accounts are created](#how-accounts-are-created)).
+
+### 6. Close the setup door
+In Vercel, delete `SETUP_TOKEN` and redeploy. The setup call can't create another owner, but removing the token closes it off completely.
+
+### If something goes wrong
+
+| Symptom | Likely cause |
+|---|---|
+| `Not found` from the setup call | Wrong or missing `SETUP_TOKEN`, an owner already exists, or the site hasn't been redeployed since the variables were added. |
+| `Not allowed` (403) | The `Origin` or `X-Requested-With` header doesn't match `APP_URL` exactly. |
+| `Something went wrong` (500) | A required variable is missing or too short. Check `JWT_SECRET` (at least 32 characters) and `TOTP_ENCRYPTION_KEY` (32 bytes, base64), then redeploy. The Vercel function logs show the cause. |
+| Sign-in says the password is wrong | Check the email exactly, and that the password is the one used in step 4. |
 
 ## Tests
 
