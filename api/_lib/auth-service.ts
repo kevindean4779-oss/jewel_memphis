@@ -57,6 +57,7 @@ export function publicUser(u: UserRow) {
     status: u.status,
     emailVerified: Boolean(u.email_verified_at),
     totpEnabled: u.totp_enabled,
+    mustChangePassword: u.must_change_password,
   };
 }
 
@@ -243,7 +244,9 @@ export async function logout(deps: Deps, refreshValue: string | null): Promise<R
 
 // ── Access token check (used by every protected route) ───────────────────
 
-export async function authenticate(deps: Deps, accessToken: string | null): Promise<Authed | null> {
+// Protected routes refuse an account that must still change its temporary password.
+// Only /me and /change-password accept it (allowPasswordChange).
+export async function authenticate(deps: Deps, accessToken: string | null, allowPasswordChange = false): Promise<Authed | null> {
   if (!accessToken) return null;
   const now = deps.now?.() ?? new Date();
   const claims = await verifyAccessToken(accessToken);
@@ -255,10 +258,31 @@ export async function authenticate(deps: Deps, accessToken: string | null): Prom
 
   const user = await deps.store.getUserById(claims.sub);
   if (!user || user.status !== 'active') return null;
+  if (user.must_change_password && !allowPasswordChange) return null;
   return { user, sessionId: session.id }; // role comes from the database, not the token
 }
 
 // ── Sessions ─────────────────────────────────────────────────────────────
+
+export async function changePassword(
+  deps: Deps,
+  ctx: Ctx,
+  auth: Authed,
+  input: { currentPassword: string; newPassword: string },
+): Promise<Result> {
+  const u = auth.user;
+  const problem = passwordProblem(input.newPassword);
+  if (problem) return { status: 400, body: { error: problem } };
+  if (!u.password_hash || !(await checkPassword(u.password_hash, input.currentPassword))) {
+    return { status: 400, body: { error: 'Current password is not right.' } };
+  }
+  if (input.currentPassword === input.newPassword) return { status: 400, body: { error: 'Choose a different password.' } };
+  await deps.store.updateUser(u.id, { password_hash: await hashPassword(input.newPassword), must_change_password: false, failed_attempts: 0, locked_until: null });
+  // Other devices are signed out; this one stays signed in.
+  await deps.store.revokeUserSessions(u.id, 'password_reset', auth.sessionId);
+  await audit(deps, ctx, 'auth.password_changed', u.id, u.id);
+  return { status: 200, body: { ok: true } };
+}
 
 export async function me(deps: Deps, auth: Authed): Promise<Result> {
   return { status: 200, body: { user: publicUser(auth.user), permissions: permissionsFor(auth.user.role) } };

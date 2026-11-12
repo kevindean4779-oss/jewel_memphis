@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { ApiError, post, signIn, signInWithCode } from './client';
+import { ApiError, changePassword, post, signIn, signInWithCode } from './client';
 
 // Screens for sign-in, password reset, email verification and invitations.
 // Links from email arrive as ?auth=<screen>&token=<one-time token>.
@@ -145,6 +145,35 @@ export function AuthScreen({ screen: initial, token }: { screen: Screen; token: 
         </>
       )}
       <button className="link" style={{ marginTop: 14 }} onClick={() => { clearUrl(); setScreen('login'); }}>Back to sign in</button>
+    </Shell>
+  );
+}
+
+// Shown after sign-in with a temporary password (set by an Admin). The app is locked until it's changed.
+export function ChangePasswordScreen({ onDone }: { onDone: () => void }) {
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [again, setAgain] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const mismatch = next.length > 0 && again.length > 0 && next !== again;
+  return (
+    <Shell title="Choose your password">
+      <p className="muted">Your Admin gave you a temporary password. Choose your own to continue.</p>
+      <form onSubmit={async e => {
+        e.preventDefault();
+        setBusy(true); setErr(null);
+        try { await changePassword(current, next); onDone(); }
+        catch (x) { setErr(ErrorText(x)); }
+        finally { setBusy(false); }
+      }} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <label className="field"><span>Temporary password</span><input type="password" autoComplete="current-password" value={current} onChange={e => setCurrent(e.target.value)} /></label>
+        <label className="field"><span>New password (12 characters or more)</span><input type="password" autoComplete="new-password" value={next} onChange={e => setNext(e.target.value)} /></label>
+        <label className="field"><span>Type it again</span><input type="password" autoComplete="new-password" value={again} onChange={e => setAgain(e.target.value)} /></label>
+        {mismatch && <div className="note warn">The two passwords don't match.</div>}
+        <Err msg={err} />
+        <button className="btn primary lg" disabled={busy || !current || next.length < 12 || mismatch || next !== again}>Save and continue</button>
+      </form>
     </Shell>
   );
 }

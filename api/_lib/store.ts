@@ -18,6 +18,7 @@ export interface UserRow {
   totp_secret_enc: string | null;
   totp_enabled: boolean;
   totp_last_step: number | null;
+  must_change_password: boolean;
   failed_attempts: number;
   locked_until: string | null;
   last_login_at: string | null;

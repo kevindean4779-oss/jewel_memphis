@@ -46,6 +46,7 @@ function Users({ isAdmin, myId, onError, onNotice }: { isAdmin: boolean; myId: s
   const [sort, setSort] = useState('created_at');
   const [dir, setDir] = useState<'asc' | 'desc'>('desc');
   const [invite, setInvite] = useState({ email: '', name: '', role: 'user' as Role });
+  const [issued, setIssued] = useState<{ who: string; password: string } | null>(null);
 
   const load = async () => {
     const qs = new URLSearchParams({ page: String(page), pageSize: String(PAGE), sort, dir });
@@ -100,6 +101,10 @@ function Users({ isAdmin, myId, onError, onNotice }: { isAdmin: boolean; myId: s
                   <option value="admin">Admin</option><option value="manager">Manager</option><option value="user">User</option>
                 </select>
               )}
+              <button className="btn" onClick={() => act(async () => {
+                const r = await authed<{ temporaryPassword: string }>(`/api/admin/users/${u.id}/reset-password`, { method: 'POST' });
+                setIssued({ who: u.email, password: r.temporaryPassword });
+              }, 'Password reset. They are signed out.')}>Reset password</button>
               {isAdmin && (u.status === 'suspended'
                 ? <button className="btn" onClick={() => act(() => authed(`/api/admin/users/${u.id}/reactivate`, { method: 'POST' }), 'Account reactivated.')}>Reactivate</button>
                 : <button className="btn" onClick={() => act(() => authed(`/api/admin/users/${u.id}/suspend`, { method: 'POST' }), 'Account suspended.')}>Suspend</button>)}
@@ -116,7 +121,15 @@ function Users({ isAdmin, myId, onError, onNotice }: { isAdmin: boolean; myId: s
         <button className="btn" disabled={page >= pages} onClick={() => setPage(page + 1)}>Next</button>
       </div>
 
-      <div className="sec">Invite someone</div>
+      {issued && (
+        <div className="note ok">
+          <b>Temporary password for {issued.who}:</b> <code style={{ fontSize: 16 }}>{issued.password}</code>
+          <br /><small>Give it to them now. It won't be shown again. They choose their own password at first sign-in.</small>
+          <div className="actions"><button className="btn" onClick={() => navigator.clipboard?.writeText(issued.password)}>Copy</button><button className="btn" onClick={() => setIssued(null)}>Done</button></div>
+        </div>
+      )}
+
+      <div className="sec">Add a staff account</div>
       <div className="fields">
         <label className="field"><span>Email</span><input type="email" value={invite.email} onChange={e => setInvite({ ...invite, email: e.target.value })} /></label>
         <label className="field"><span>Name</span><input value={invite.name} onChange={e => setInvite({ ...invite, name: e.target.value })} /></label>
@@ -126,9 +139,10 @@ function Users({ isAdmin, myId, onError, onNotice }: { isAdmin: boolean; myId: s
           </select></label>
       </div>
       <button className="btn primary" disabled={!invite.email || !invite.name} onClick={() => act(async () => {
-        await authed('/api/admin/users', { method: 'POST', body: JSON.stringify(invite) });
+        const r = await authed<{ temporaryPassword: string }>('/api/admin/users', { method: 'POST', body: JSON.stringify(invite) });
+        setIssued({ who: invite.email, password: r.temporaryPassword });
         setInvite({ email: '', name: '', role: 'user' });
-      }, 'Invitation sent.')}>Send invitation</button>
+      }, 'Account created.')}>Create account</button>
     </>
   );
 }

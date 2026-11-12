@@ -83,10 +83,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       result = await svc.acceptInvite(deps, ctx, input);
     } else {
       // Signed-in routes: the access token is checked against the database every time.
-      const auth = await svc.authenticate(deps, bearer(req));
+      const onlyPasswordChange = route === 'me' || route === 'change-password';
+      const auth = await svc.authenticate(deps, bearer(req), onlyPasswordChange);
       if (!auth) return fail(res, 401, 'Sign in to continue');
 
       if (req.method === 'GET' && route === 'me') result = await svc.me(deps, auth);
+      else if (req.method === 'POST' && route === 'change-password') {
+        const input = parse(res, schemas.changePassword, req);
+        if (!input) return;
+        result = await svc.changePassword(deps, ctx, auth, input);
+      }
       else if (req.method === 'GET' && route === 'sessions') result = await svc.listSessions(deps, auth);
       else if (req.method === 'DELETE' && route === 'sessions') result = await svc.revokeAllSessions(deps, ctx, auth);
       else if (req.method === 'DELETE' && /^sessions\/[0-9a-f-]{36}$/.test(route)) {

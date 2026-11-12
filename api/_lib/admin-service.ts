@@ -1,7 +1,7 @@
 import { safeEqual } from './crypto';
 import { can, type Permission, type Role } from './rbac';
-import { hashPassword, passwordProblem } from './passwords';
-import { sendInvite, resendVerification, type Authed, type Ctx, type Deps, type Result } from './auth-service';
+import { hashPassword, passwordProblem, temporaryPassword } from './passwords';
+import { resendVerification, type Authed, type Ctx, type Deps, type Result } from './auth-service';
 import type { UserRow } from './store';
 
 // Admin actions. Each one checks a permission first, then the safety rules, and
@@ -69,7 +69,9 @@ export async function getUser(deps: Deps, auth: Authed, id: string): Promise<Res
   return u ? { status: 200, body: { user: adminView(u) } } : notFound();
 }
 
-export async function inviteUser(
+// Creates an account directly. The Admin (or a Manager, for Users) gets a temporary
+// password to hand over, shown once. The person must choose their own on first sign-in.
+export async function createAccount(
   deps: Deps,
   ctx: Ctx,
   auth: Authed,
@@ -77,15 +79,38 @@ export async function inviteUser(
 ): Promise<Result> {
   const denied = require_(auth, 'users:invite');
   if (denied) return denied;
-  // Only someone allowed to change roles can invite an Admin or Manager.
+  // Only someone allowed to change roles can create an Admin or Manager.
   if (input.role !== 'user' && !can(auth.user.role, 'users:role')) return forbidden();
   if (await deps.store.getUserByEmail(input.email)) {
     return { status: 409, body: { error: 'An account with that email already exists.' } };
   }
-  const user = await deps.store.createUser({ email: input.email, name: input.name, role: input.role, status: 'invited' });
-  await sendInvite(deps, user.id, user.email);
-  await audit(deps, ctx, auth, 'user.invite', user.id, { role: input.role });
-  return { status: 201, body: { user: adminView(user) } };
+  const temp = temporaryPassword();
+  const user = await deps.store.createUser({
+    email: input.email,
+    name: input.name,
+    role: input.role,
+    status: 'active',
+    password_hash: await hashPassword(temp),
+    email_verified_at: new Date().toISOString(),
+    must_change_password: true,
+  });
+  await audit(deps, ctx, auth, 'user.create', user.id, { role: input.role });
+  return { status: 201, body: { user: adminView(user), temporaryPassword: temp } };
+}
+
+// New temporary password for an account, e.g. when someone forgets theirs. Signs them out everywhere.
+export async function resetPassword(deps: Deps, ctx: Ctx, auth: Authed, targetId: string): Promise<Result> {
+  const denied = require_(auth, 'users:reset_password');
+  if (denied) return denied;
+  const target = await deps.store.getUserById(targetId);
+  if (!target) return notFound();
+  if (!canManage(auth.user.role, target)) return forbidden();
+  if (target.id === auth.user.id) return { status: 400, body: { error: 'Use Change password on your own account.' } };
+  const temp = temporaryPassword();
+  await deps.store.updateUser(target.id, { password_hash: await hashPassword(temp), must_change_password: true, failed_attempts: 0, locked_until: null });
+  await deps.store.revokeUserSessions(target.id, 'password_reset');
+  await audit(deps, ctx, auth, 'user.password_reset', target.id);
+  return { status: 200, body: { temporaryPassword: temp } };
 }
 
 export async function updateUser(

@@ -48,7 +48,7 @@ export class MemoryStore implements Store {
   async createUser(row: Partial<UserRow> & { email: string; role: Role; status: UserStatus }) {
     const u: UserRow = {
       id: randomUUID(), name: '', password_hash: null, email_verified_at: null, totp_secret_enc: null,
-      totp_enabled: false, totp_last_step: null, failed_attempts: 0, locked_until: null, last_login_at: null,
+      totp_enabled: false, totp_last_step: null, must_change_password: false, failed_attempts: 0, locked_until: null, last_login_at: null,
       deleted_at: null, created_at: new Date().toISOString(), ...row,
     };
     this.users.push(u);

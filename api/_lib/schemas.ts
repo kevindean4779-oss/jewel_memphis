@@ -27,6 +27,7 @@ export const schemas = {
     role: z.enum(['admin', 'manager', 'user']).optional(),
   }),
   setStatus: z.object({ status: z.enum(['active', 'suspended']) }),
+  changePassword: z.object({ currentPassword: z.string().min(1).max(128), newPassword: password }),
 };
 
 export { password as passwordSchema };

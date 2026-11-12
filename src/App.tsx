@@ -7,7 +7,7 @@ import { MarketProvider, useMarket } from './order/market';
 import { WorkshopTicket } from './order/ticket';
 import { newOrderNo } from './order/state';
 import { loadSession, session } from './auth/client';
-import { AuthScreen, screenFromUrl } from './auth/AuthScreens';
+import { AuthScreen, ChangePasswordScreen, screenFromUrl } from './auth/AuthScreens';
 import { AccountModal } from './auth/Account';
 import { TeamModal } from './auth/Team';
 
@@ -99,6 +99,7 @@ function Gate() {
     const { screen, token } = screenFromUrl();
     return <AuthScreen key={screen + token} screen={screen} token={token} />;
   }
+  if (user.mustChangePassword) return <ChangePasswordScreen onDone={() => { /* session is refreshed */ }} />;
   return <Counter />;
 }
 

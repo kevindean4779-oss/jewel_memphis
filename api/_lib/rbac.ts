@@ -11,13 +11,14 @@ export const PERMISSIONS = [
   'users:suspend',
   'users:role',
   'users:delete',
+  'users:reset_password',
   'audit:read',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
 const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   user: ['orders:use'],
-  manager: ['orders:use', 'users:read', 'users:invite', 'users:edit'],
+  manager: ['orders:use', 'users:read', 'users:invite', 'users:edit', 'users:reset_password'],
   admin: [...PERMISSIONS],
 };
 
