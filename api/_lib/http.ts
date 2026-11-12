@@ -58,3 +58,16 @@ export function send(res: VercelResponse, status: number, body: unknown, extra: 
 export function fail(res: VercelResponse, status: number, error: string, extra: Record<string, string> = {}) {
   send(res, status, { error }, extra);
 }
+
+// Route name after the prefix, e.g. "/api/auth/login?x=1" with prefix "auth" -> "login".
+// Read from the URL, which always carries the path. req.query.path is used only as a fallback.
+export function routeFrom(req: VercelRequest, prefix: 'auth' | 'admin'): string {
+  if (typeof req.url === 'string') {
+    const pathname = req.url.split('?')[0];
+    const marker = `/api/${prefix}/`;
+    const idx = pathname.indexOf(marker);
+    if (idx !== -1) return pathname.slice(idx + marker.length).replace(/\/+$/, '');
+  }
+  const p = req.query?.path;
+  return (Array.isArray(p) ? p : [p]).filter(Boolean).join('/');
+}

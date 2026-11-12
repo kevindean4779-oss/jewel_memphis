@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { appUrl } from '../_lib/config.js';
-import { clearRefreshCookie, clientIp, cookieValue, csrfOk, fail, REFRESH_COOKIE, refreshCookie, send, userAgent } from '../_lib/http.js';
+import { clearRefreshCookie, clientIp, cookieValue, csrfOk, fail, REFRESH_COOKIE, refreshCookie, routeFrom, send, userAgent } from '../_lib/http.js';
 import { defaultMailer } from '../_lib/mailer.js';
 import { SupabaseStore } from '../_lib/store.js';
 import { schemas } from '../_lib/schemas.js';
@@ -37,7 +37,7 @@ function parse<T>(res: VercelResponse, schema: { safeParse: (v: unknown) => { su
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const route = (Array.isArray(req.query.path) ? req.query.path : [req.query.path]).filter(Boolean).join('/');
+  const route = routeFrom(req, 'auth');
   const ctx = { ip: clientIp(req), userAgent: userAgent(req) };
   const mutating = req.method && req.method !== 'GET';
 

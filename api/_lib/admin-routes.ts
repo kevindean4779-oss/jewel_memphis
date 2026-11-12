@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { z } from 'zod';
 import { authenticate, type Deps, type Result } from './auth-service.js';
-import { bearerToken, clientIp, fail, send, userAgent } from './http.js';
+import { bearerToken, clientIp, fail, routeFrom, send, userAgent } from './http.js';
 import { ROLES } from './rbac.js';
 import * as admin from './admin-service.js';
 
@@ -45,7 +45,7 @@ export async function routeAdmin(
   deps: Deps,
   setupToken: string | undefined,
 ): Promise<void> {
-  const route = (Array.isArray(req.query.path) ? req.query.path : [req.query.path]).filter(Boolean).join('/');
+  const route = routeFrom(req, 'admin');
   const ctx = { ip: clientIp(req), userAgent: userAgent(req) };
   const method = req.method ?? 'GET';
 
