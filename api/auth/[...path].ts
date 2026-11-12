@@ -1,10 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { appUrl } from '../_lib/config';
-import { clearRefreshCookie, clientIp, cookieValue, csrfOk, fail, REFRESH_COOKIE, refreshCookie, send, userAgent } from '../_lib/http';
-import { defaultMailer } from '../_lib/mailer';
-import { SupabaseStore } from '../_lib/store';
-import { schemas } from '../_lib/schemas';
-import * as svc from '../_lib/auth-service';
+import { appUrl } from '../_lib/config.js';
+import { clearRefreshCookie, clientIp, cookieValue, csrfOk, fail, REFRESH_COOKIE, refreshCookie, send, userAgent } from '../_lib/http.js';
+import { defaultMailer } from '../_lib/mailer.js';
+import { SupabaseStore } from '../_lib/store.js';
+import { schemas } from '../_lib/schemas.js';
+import * as svc from '../_lib/auth-service.js';
 
 // Routes: /api/auth/<action>. Every state-changing request needs the app's Origin
 // and X-Requested-With header (CSRF defence). Protected routes need a Bearer token.

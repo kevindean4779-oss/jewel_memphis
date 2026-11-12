@@ -1,6 +1,6 @@
 import { SignJWT, jwtVerify } from 'jose';
-import { TIMING, jwtSecret } from './config';
-import type { Role } from './rbac';
+import { TIMING, jwtSecret } from './config.js';
+import type { Role } from './rbac.js';
 
 export interface AccessClaims {
   sub: string; // user id

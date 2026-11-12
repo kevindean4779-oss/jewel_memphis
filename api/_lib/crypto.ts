@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes, timingSafeEqual } from 'node:crypto';
-import { totpKey } from './config';
+import { totpKey } from './config.js';
 
 // Random, URL-safe token. The raw value goes to the user; only its hash is stored.
 export function randomToken(bytes = 32): string {

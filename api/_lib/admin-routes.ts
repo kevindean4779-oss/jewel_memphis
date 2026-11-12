@@ -1,9 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { z } from 'zod';
-import { authenticate, type Deps, type Result } from './auth-service';
-import { bearerToken, clientIp, fail, send, userAgent } from './http';
-import { ROLES } from './rbac';
-import * as admin from './admin-service';
+import { authenticate, type Deps, type Result } from './auth-service.js';
+import { bearerToken, clientIp, fail, send, userAgent } from './http.js';
+import { ROLES } from './rbac.js';
+import * as admin from './admin-service.js';
 
 // Routes under /api/admin. Every request needs a signed-in account. Each action then
 // checks its permission in the service layer, so a direct API call is refused too.

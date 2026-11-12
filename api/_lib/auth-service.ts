@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { decryptSecret, encryptSecret, newBackupCode, normalizeBackupCode, randomToken, safeEqual, sha256 } from './crypto';
+import { decryptSecret, encryptSecret, newBackupCode, normalizeBackupCode, randomToken, safeEqual, sha256 } from './crypto.js';
 import { generateSecret, generateURI, verify as verifyTotp } from 'otplib';
 
 // otplib returns a result union; only a valid code carries the time step.
@@ -9,12 +9,12 @@ function validStep(r: { valid: boolean }): number | null {
 
 // randomUUID's type is a template literal; store it as a plain string.
 const uuid = (): string => randomUUID();
-import { LIMITS, RATE, TIMING } from './config';
-import { can, type Permission, type Role } from './rbac';
-import { checkPassword, burnPasswordTime, hashPassword, passwordProblem } from './passwords';
-import { signAccessToken, signMfaToken, verifyAccessToken, verifyMfaToken } from './tokens';
-import type { Mailer } from './mailer';
-import type { Store, UserRow } from './store';
+import { LIMITS, RATE, TIMING } from './config.js';
+import { can, type Permission, type Role } from './rbac.js';
+import { checkPassword, burnPasswordTime, hashPassword, passwordProblem } from './passwords.js';
+import { signAccessToken, signMfaToken, verifyAccessToken, verifyMfaToken } from './tokens.js';
+import type { Mailer } from './mailer.js';
+import type { Store, UserRow } from './store.js';
 
 export interface Deps {
   store: Store;

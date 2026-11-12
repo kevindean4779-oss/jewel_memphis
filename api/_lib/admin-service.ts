@@ -1,8 +1,8 @@
-import { safeEqual } from './crypto';
-import { can, type Permission, type Role } from './rbac';
-import { hashPassword, passwordProblem, temporaryPassword } from './passwords';
-import { resendVerification, type Authed, type Ctx, type Deps, type Result } from './auth-service';
-import type { UserRow } from './store';
+import { safeEqual } from './crypto.js';
+import { can, type Permission, type Role } from './rbac.js';
+import { hashPassword, passwordProblem, temporaryPassword } from './passwords.js';
+import { resendVerification, type Authed, type Ctx, type Deps, type Result } from './auth-service.js';
+import type { UserRow } from './store.js';
 
 // Admin actions. Each one checks a permission first, then the safety rules, and
 // writes an audit entry. Admins can't delete or demote themselves, and the last

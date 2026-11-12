@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { serviceClient } from './_lib/supabase';
+import { serviceClient } from './_lib/supabase.js';
 
 // Live spot prices, cached in Supabase so cold starts don't spend the provider's quota.
 const TROY_OZ_GRAMS = 31.1035;

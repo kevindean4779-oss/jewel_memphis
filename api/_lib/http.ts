@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { appUrl, TIMING } from './config';
+import { appUrl, TIMING } from './config.js';
 
 export function clientIp(req: VercelRequest): string | null {
   const fwd = req.headers['x-forwarded-for'];

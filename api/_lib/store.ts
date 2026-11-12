@@ -1,5 +1,5 @@
-import type { Role } from './rbac';
-import { serviceClient } from './supabase';
+import type { Role } from './rbac.js';
+import { serviceClient } from './supabase.js';
 
 // Data access for auth. The service layer depends on this interface only, so tests
 // can use an in-memory version. SupabaseStore is the production implementation.

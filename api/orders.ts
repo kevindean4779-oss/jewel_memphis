@@ -1,12 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { serviceClient } from './_lib/supabase';
-import { hasStaffPin } from './_lib/auth';
-import { authenticate } from './_lib/auth-service';
-import { bearerToken } from './_lib/http';
-import { SupabaseStore } from './_lib/store';
-import { defaultMailer } from './_lib/mailer';
-import { appUrl } from './_lib/config';
-import { can } from './_lib/rbac';
+import { serviceClient } from './_lib/supabase.js';
+import { hasStaffPin } from './_lib/auth.js';
+import { authenticate } from './_lib/auth-service.js';
+import { bearerToken } from './_lib/http.js';
+import { SupabaseStore } from './_lib/store.js';
+import { defaultMailer } from './_lib/mailer.js';
+import { appUrl } from './_lib/config.js';
+import { can } from './_lib/rbac.js';
 
 // Shared orders. Every request needs the staff PIN in the x-staff-pin header.
 export default async function handler(req: VercelRequest, res: VercelResponse) {

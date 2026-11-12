@@ -1,9 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { appUrl } from '../_lib/config';
-import { defaultMailer } from '../_lib/mailer';
-import { SupabaseStore } from '../_lib/store';
-import { routeAdmin } from '../_lib/admin-routes';
-import { fail } from '../_lib/http';
+import { appUrl } from '../_lib/config.js';
+import { defaultMailer } from '../_lib/mailer.js';
+import { SupabaseStore } from '../_lib/store.js';
+import { routeAdmin } from '../_lib/admin-routes.js';
+import { fail } from '../_lib/http.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {

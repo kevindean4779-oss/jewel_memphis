@@ -3,7 +3,7 @@ import { hash, verify } from '@node-rs/argon2';
 
 // 2 is Argon2id in @node-rs/argon2 (its Algorithm enum is a const enum, which the build can't import).
 const ARGON2ID = 2;
-import { LIMITS } from './config';
+import { LIMITS } from './config.js';
 
 // Argon2id. Parameters are the library defaults (memory-hard, OWASP-recommended family).
 export function passwordProblem(password: unknown): string | null {
