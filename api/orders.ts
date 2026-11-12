@@ -1,13 +1,24 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { serviceClient } from './_lib/supabase';
-import { hasStaffPin } from './_lib/auth';
+import { serviceClient } from './_lib/supabase.js';
+import { hasStaffPin } from './_lib/auth.js';
+import { authenticate } from './_lib/auth-service.js';
+import { bearerToken } from './_lib/http.js';
+import { SupabaseStore } from './_lib/store.js';
+import { defaultMailer } from './_lib/mailer.js';
+import { appUrl } from './_lib/config.js';
+import { can } from './_lib/rbac.js';
 
 // Shared orders. Every request needs the staff PIN in the x-staff-pin header.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-store');
-  if (!hasStaffPin(req)) return res.status(401).json({ error: 'Wrong or missing staff PIN' });
-
+  // Signed-in staff with the orders permission, or the shared staff PIN while it is still
+  // in use. Remove STAFF_PIN once every staff member has an account.
   try {
+    const deps = { store: new SupabaseStore(), mailer: defaultMailer(), appUrl: appUrl() };
+    const auth = await authenticate(deps, bearerToken(req));
+    const allowed = (auth && can(auth.user.role, 'orders:use')) || hasStaffPin(req);
+    if (!allowed) return res.status(401).json({ error: 'Sign in to continue' });
+
     const sb = serviceClient();
 
     if (req.method === 'GET') {

@@ -3,7 +3,7 @@ import { KARATS, METALS, STONES, STONE_KEYS, TROY_OZ_GRAMS, type StoneKey } from
 import { DEFAULT_CONFIG, taxLabel, type OwnerConfig } from './config';
 import { gramRate, type Market } from './pricing';
 import { money, fmtDate } from './format';
-import { clearPin, getPin, listOrdersRemote, PinError, setPin, type OrderRow } from './db';
+import { listOrdersRemote, type OrderRow } from './db';
 import { useMarket } from './market';
 import type { OrderState } from './types';
 
@@ -101,46 +101,18 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
 }
 
 export function OrdersModal({ onOpen, onClose }: { onOpen: (o: OrderState) => void; onClose: () => void }) {
-  const [pin, setPinInput] = useState<string | null>(getPin());
   const [rows, setRows] = useState<OrderRow[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [draftPin, setDraftPin] = useState('');
-
-  const load = (p: string) => {
-    setErr(null);
-    listOrdersRemote(p)
-      .then(setRows)
-      .catch(e => {
-        if (e instanceof PinError) { clearPin(); setPinInput(null); setErr('Wrong PIN. Try again.'); }
-        else setErr('Could not load orders. Check the connection.');
-      });
-  };
 
   useEffect(() => {
-    if (pin) load(pin);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    listOrdersRemote().then(setRows).catch((e: Error) => setErr(e.message || 'Could not load orders.'));
   }, []);
-
-  if (!pin) {
-    return (
-      <Overlay onClose={onClose}>
-        <div className="sec">Orders <span className="hint">staff only</span></div>
-        <p className="muted">Enter the staff PIN to see and open shared orders on this iPad.</p>
-        {err && <div className="note bad">{err}</div>}
-        <label className="field"><span>Staff PIN</span>
-          <input type="password" inputMode="numeric" value={draftPin} onChange={e => setDraftPin(e.target.value)} /></label>
-        <div className="actions">
-          <button className="btn ghost" onClick={onClose}>Cancel</button>
-          <button className="btn primary lg" disabled={!draftPin} onClick={() => { setPin(draftPin); setPinInput(draftPin); load(draftPin); }}>Unlock</button>
-        </div>
-      </Overlay>
-    );
-  }
 
   return (
     <Overlay onClose={onClose}>
       <div className="sec">Orders <span className="hint">shared</span></div>
       {err && <div className="note bad">{err}</div>}
+      {!rows && !err && <p className="muted">Loading…</p>}
       {rows && rows.length === 0 && <p className="muted">No orders yet.</p>}
       {rows?.map(r => (
         <div className="kv" key={r.id} style={{ alignItems: 'center' }}>
@@ -151,10 +123,7 @@ export function OrdersModal({ onOpen, onClose }: { onOpen: (o: OrderState) => vo
           <button className="btn" onClick={() => onOpen(r.data)}>Open</button>
         </div>
       ))}
-      <div className="actions">
-        <button className="btn ghost" onClick={() => { clearPin(); setPinInput(null); }}>Lock</button>
-        <button className="btn dark" onClick={onClose}>Close</button>
-      </div>
+      <div className="actions"><span /><button className="btn dark" onClick={onClose}>Close</button></div>
     </Overlay>
   );
 }
