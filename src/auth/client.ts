@@ -9,6 +9,7 @@ export interface Me {
   status: string;
   emailVerified: boolean;
   totpEnabled: boolean;
+  mustChangePassword: boolean;
 }
 
 export class ApiError extends Error {
@@ -105,3 +106,9 @@ export async function signOut(): Promise<void> {
 }
 
 export const post = <T,>(path: string, body: unknown) => call<T>(path, { method: 'POST', body: JSON.stringify(body) }, false);
+
+// Replaces the password and clears the forced change. Other devices are signed out.
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  await authed('/api/auth/change-password', { method: 'POST', body: JSON.stringify({ currentPassword, newPassword }) });
+  await refresh();
+}

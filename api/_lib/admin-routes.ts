@@ -75,7 +75,7 @@ export async function routeAdmin(
     if (method === 'POST' && route === 'users') {
       const parsed = inviteBody.safeParse(body(req) ?? {});
       if (!parsed.success) return fail(res, 400, parsed.error.issues[0].message);
-      return reply(res, await admin.inviteUser(deps, ctx, auth, parsed.data));
+      return reply(res, await admin.createAccount(deps, ctx, auth, parsed.data));
     }
     if (parts[0] === 'users' && id && uuid.test(id)) {
       const action = parts[2];
@@ -87,6 +87,7 @@ export async function routeAdmin(
       }
       if (method === 'POST' && action === 'suspend') return reply(res, await admin.suspendUser(deps, ctx, auth, id));
       if (method === 'POST' && action === 'reactivate') return reply(res, await admin.reactivateUser(deps, ctx, auth, id));
+      if (method === 'POST' && action === 'reset-password') return reply(res, await admin.resetPassword(deps, ctx, auth, id));
       if (method === 'DELETE' && !action) return reply(res, await admin.deleteUser(deps, ctx, auth, id));
     }
     if (method === 'GET' && route === 'audit') {

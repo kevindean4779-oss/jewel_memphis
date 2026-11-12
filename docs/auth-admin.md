@@ -58,6 +58,7 @@ Migrations, in order:
 1. `supabase/migrations/20261111000000_auth_admin.sql`: users, sessions, auth_tokens, backup_codes, audit_log, rate_limits, the rate-limit function, the last-Admin guard, and row-level security.
 2. `supabase/migrations/20261111000100_totp_replay.sql`: stores the last used 2FA time step.
 3. `supabase/migrations/20261112000000_pin_function_search_path.sql`: pins the search path on the three functions (clears a Supabase security warning).
+4. `supabase/migrations/20261112000100_must_change_password.sql`: forces a password change after an Admin-set temporary password.
 
 `supabase/schema.sql` is the earlier baseline. Apply the migrations after it.
 
@@ -72,13 +73,23 @@ Verified on the live project:
 
 Not yet verified: the server's Supabase client (`api/_lib/store.ts`) with the service role key. That needs a Vercel deployment or a local test with the key.
 
+## How accounts are created
+
+1. **Owner.** Run the one-time setup call (see Setup). Sign in, then turn on 2FA.
+2. **Staff.** The owner opens **Team → Add a staff account**, enters the name, email and role, and clicks **Create account**. The temporary password is shown once. Give it to the person.
+3. **First sign-in.** The person signs in with the temporary password and is asked to choose their own (12 characters or more). Until they do, the app and the orders API refuse them.
+4. **Forgotten password.** The owner (or a Manager, for Users) opens the person in **Team** and clicks **Reset password**. A new temporary password is shown once, and the person is signed out everywhere. No email is needed.
+5. **Forgot password (self-service).** Uses an email link. This needs the email setup below.
+
+Roles: a Manager can create and reset Users only. Only the owner can create Admins or Managers.
+
 ## Existing users
 
 There are no accounts in the database before this change. Staff have only the shared PIN.
-- The migration adds no users, so nobody loses access by it.
+- The migrations add no users, so nobody loses access by them.
 - The first Admin is created with `POST /api/admin/bootstrap` (see Setup).
-- Other staff get an invitation email from an Admin or Manager. Their accounts start as User.
-- The staff PIN keeps working until you remove `STAFF_PIN`. Remove it once everyone has an account.
+- Staff accounts are created from **Team** (see above).
+- The staff PIN keeps working until you remove `STAFF_PIN`. Remove it once every staff member has an account.
 
 ## Setup
 
@@ -89,7 +100,7 @@ There are no accounts in the database before this change. Staff have only the sh
    - `TOTP_ENCRYPTION_KEY`: `openssl rand -base64 32`
    - `RESEND_API_KEY` and `EMAIL_FROM`: email (verify your sending domain in Resend first)
    - `SETUP_TOKEN`: a random string, for the first Admin only
-3. Redeploy, then create the first Admin:
+3. Redeploy, then create the owner account:
 
 ```bash
 curl -X POST https://your-site.vercel.app/api/admin/bootstrap \
@@ -98,7 +109,7 @@ curl -X POST https://your-site.vercel.app/api/admin/bootstrap \
 ```
 
 4. Remove `SETUP_TOKEN` from Vercel. It's no longer needed.
-5. Invite staff from the admin screen, then remove `STAFF_PIN` once they've accepted.
+5. Add staff from **Team → Add a staff account**, then remove `STAFF_PIN` once everyone has signed in.
 
 ## Tests
 
@@ -114,10 +125,14 @@ The Supabase store (`api/_lib/store.ts`) is tested only through the migration te
 
 Automated browser run (2026-11-12, against a local build with mocked API responses): sign-in with 2FA, the team list and filters, the audit tab, the account panel, sign-out, the reset link, the invite link, and the password length check all pass, with no page errors. Not yet done: a real iPad, and the live site.
 
-- [ ] Bootstrap creates the first Admin; a second bootstrap call returns 404.
+- [ ] Bootstrap creates the owner; a second bootstrap call returns 404.
+- [ ] Owner creates a staff account in Team; the temporary password is shown once and not again.
+- [ ] Staff signs in with the temporary password and must choose a new one before reaching the counter.
+- [ ] Owner resets a staff password; the staff member is signed out and must choose a new one.
+- [ ] A Manager can create and reset Users, but not Admins or Managers.
 - [ ] Sign-in works; a wrong password and an unknown email look the same.
 - [ ] Five wrong passwords lock the account for 15 minutes.
-- [ ] Forgot-password gives the same reply for a real and a fake email. Reset link works once.
+- [ ] Forgot-password gives the same reply for a real and a fake email, and the email link works once (needs email set up).
 - [ ] Refresh cookie has HttpOnly, Secure and SameSite=Lax (browser devtools).
 - [ ] Reusing an old refresh token signs out every session from that login.
 - [ ] Sign out on one device doesn't affect another; "sign out everywhere" affects all.

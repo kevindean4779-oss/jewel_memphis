@@ -72,6 +72,8 @@ async function account(email: string, role: 'admin' | 'manager' | 'user', status
   return (await store.getUserById(u.id))!;
 }
 
+const ctx = () => ({ ip: IP, userAgent: UA });
+
 async function tokenFor(email: string): Promise<string> {
   const r = await svc.login(deps(), { ip: IP, userAgent: UA }, { email, password: PASSWORD });
   if (r.status !== 200) throw new Error(`login failed for ${email}: ${r.status}`);
@@ -199,14 +201,71 @@ describe('admin: listing users', () => {
 });
 
 describe('admin: invite, edit and role changes', () => {
-  it('invites a user, emails a link, and records it in the audit log', async () => {
+  it('creates an account with a temporary password and records it in the audit log', async () => {
     const s = await setup();
     const r = await call('POST', 'users', { token: s.adminToken, body: { email: 'New.Person@Example.com', name: 'New', role: 'manager' } });
     expect(r.status).toBe(201);
     expect(r.body.user.email).toBe('new.person@example.com');
-    expect(r.body.user.status).toBe('invited');
-    expect(mailer.sent.some(m => m.to === 'new.person@example.com')).toBe(true);
-    expect(store.audit.find(a => a.action === 'user.invite')).toMatchObject({ actor_id: s.admin.id, ip: IP, user_agent: UA });
+    expect(r.body.user.status).toBe('active');
+    expect(typeof r.body.temporaryPassword).toBe('string');
+    expect(r.body.temporaryPassword.length).toBeGreaterThanOrEqual(12);
+    expect(mailer.sent.length).toBe(0); // no email needed
+    expect(store.audit.find(a => a.action === 'user.create')).toMatchObject({ actor_id: s.admin.id, ip: IP, user_agent: UA });
+  });
+
+  it('the new person must change the temporary password before using the app', async () => {
+    const s = await setup();
+    const r = await call('POST', 'users', { token: s.adminToken, body: { email: 'temp@example.com', name: 'Temp', role: 'user' } });
+    const login = await svc.login(deps(), { ip: IP, userAgent: UA }, { email: 'temp@example.com', password: r.body.temporaryPassword });
+    expect(login.status).toBe(200);
+    const token = (login.body as { accessToken: string }).accessToken;
+    expect((login.body as { user: { mustChangePassword: boolean } }).user.mustChangePassword).toBe(true);
+    // Orders and admin routes refuse the account until it changes the password.
+    expect(await svc.authenticate(deps(), token)).toBeNull();
+    expect(await svc.authenticate(deps(), token, true)).not.toBeNull();
+    const change = await svc.changePassword(deps(), { ip: IP, userAgent: UA }, (await svc.authenticate(deps(), token, true))!, { currentPassword: r.body.temporaryPassword, newPassword: 'my own passphrase' });
+    expect(change.status).toBe(200);
+    expect(await svc.authenticate(deps(), token)).not.toBeNull();
+  });
+
+  it('a wrong current password does not change anything', async () => {
+    const s = await setup();
+    const r = await call('POST', 'users', { token: s.adminToken, body: { email: 'temp2@example.com', name: 'T', role: 'user' } });
+    const login = await svc.login(deps(), { ip: IP, userAgent: UA }, { email: 'temp2@example.com', password: r.body.temporaryPassword });
+    const auth = await svc.authenticate(deps(), (login.body as { accessToken: string }).accessToken, true);
+    expect((await svc.changePassword(deps(), ctx(), auth!, { currentPassword: 'not the temp one', newPassword: 'my own passphrase' })).status).toBe(400);
+    expect(store.users.find(u => u.email === 'temp2@example.com')!.must_change_password).toBe(true);
+  });
+
+  it('an Admin can reset a staff password, which signs them out and forces a change', async () => {
+    const s = await setup();
+    const userToken = await tokenFor('staff@example.com');
+    const r = await call('POST', `users/${s.staff.id}/reset-password`, { token: s.adminToken });
+    expect(r.status).toBe(200);
+    expect(await svc.authenticate(deps(), userToken)).toBeNull();
+    const login = await svc.login(deps(), { ip: IP, userAgent: UA }, { email: 'staff@example.com', password: r.body.temporaryPassword });
+    expect(login.status).toBe(200);
+    expect(store.audit.find(a => a.action === 'user.password_reset')).toMatchObject({ target_id: s.staff.id });
+    expect(JSON.stringify(store.audit)).not.toContain(r.body.temporaryPassword);
+  });
+
+  it('a manager can reset a User password but not an Admin or Manager', async () => {
+    const s = await setup();
+    const other = await account('mgr2@example.com', 'manager');
+    expect((await call('POST', `users/${s.staff.id}/reset-password`, { token: s.managerToken })).status).toBe(200);
+    expect((await call('POST', `users/${s.admin.id}/reset-password`, { token: s.managerToken })).status).toBe(403);
+    expect((await call('POST', `users/${other.id}/reset-password`, { token: s.managerToken })).status).toBe(403);
+  });
+
+  it('an Admin cannot reset their own password through the admin route', async () => {
+    const s = await setup();
+    expect((await call('POST', `users/${s.admin.id}/reset-password`, { token: s.adminToken })).status).toBe(400);
+  });
+
+  it('a manager cannot create an Admin or Manager account', async () => {
+    const s = await setup();
+    expect((await call('POST', 'users', { token: s.managerToken, body: { email: 'boss2@example.com', name: 'B', role: 'manager' } })).status).toBe(403);
+    expect((await call('POST', 'users', { token: s.managerToken, body: { email: 'staff2@example.com', name: 'S', role: 'user' } })).status).toBe(201);
   });
 
   it('rejects an email already in use', async () => {

@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { hash, verify } from '@node-rs/argon2';
 
 // 2 is Argon2id in @node-rs/argon2 (its Algorithm enum is a const enum, which the build can't import).
@@ -29,4 +30,9 @@ let dummyHash: Promise<string> | null = null;
 export function burnPasswordTime(password: string): Promise<boolean> {
   dummyHash ??= hashPassword('timing-equalizer-not-a-real-password');
   return dummyHash.then(h => checkPassword(h, password));
+}
+
+// Temporary password for a new or reset account. 16 random characters, shown once to the Admin.
+export function temporaryPassword(): string {
+  return randomBytes(12).toString('base64url');
 }
