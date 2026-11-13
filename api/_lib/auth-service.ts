@@ -15,6 +15,7 @@ import { checkPassword, burnPasswordTime, hashPassword, passwordProblem } from '
 import { signAccessToken, signMfaToken, verifyAccessToken, verifyMfaToken } from './tokens.js';
 import type { Mailer } from './mailer.js';
 import type { Store, UserRow } from './store.js';
+import { pinLookup, pinProblem } from './pin.js';
 
 export interface Deps {
   store: Store;
@@ -154,6 +155,34 @@ export async function login(deps: Deps, ctx: Ctx, input: { email: string; passwo
   }
   await audit(deps, ctx, 'auth.login', user.id, user.id);
   return issueSession(deps, ctx, user, now);
+}
+
+// Sign in with a personal PIN. The PIN is the only factor on this screen. Attempts are
+// limited per network address, because a PIN identifies the account by itself.
+export async function pinLogin(deps: Deps, ctx: Ctx, input: { pin: string }): Promise<Result> {
+  const now = deps.now?.() ?? new Date();
+  const limit = await limited(deps, `pin:ip:${ctx.ip}`, RATE.loginPerIp);
+  if (limit) return limit;
+
+  const user = await deps.store.findUserByPinLookup(pinLookup(input.pin));
+  if (!user || user.status !== 'active') {
+    await audit(deps, ctx, 'auth.pin_failed', null, null);
+    return { status: 401, body: { error: 'Wrong PIN' } };
+  }
+  await deps.store.updateUser(user.id, { last_login_at: now.toISOString(), failed_attempts: 0, locked_until: null });
+  await audit(deps, ctx, 'auth.login', user.id, user.id, { method: 'pin' });
+  return issueSession(deps, ctx, user, now);
+}
+
+// A person changes their own PIN. Sessions stay signed in.
+export async function changePin(deps: Deps, ctx: Ctx, auth: Authed, input: { pin: string }): Promise<Result> {
+  const problem = pinProblem(input.pin);
+  if (problem) return { status: 400, body: { error: problem } };
+  const clash = await deps.store.findUserByPinLookup(pinLookup(input.pin));
+  if (clash && clash.id !== auth.user.id) return { status: 409, body: { error: 'That PIN is already in use. Choose another.' } };
+  await deps.store.updateUser(auth.user.id, { pin_lookup: pinLookup(input.pin) });
+  await audit(deps, ctx, 'auth.pin_changed', auth.user.id, auth.user.id);
+  return { status: 200, body: { ok: true } };
 }
 
 export async function loginWithTwoFactor(

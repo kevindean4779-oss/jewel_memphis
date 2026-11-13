@@ -201,71 +201,58 @@ describe('admin: listing users', () => {
 });
 
 describe('admin: invite, edit and role changes', () => {
-  it('creates an account with a temporary password and records it in the audit log', async () => {
+  it('creates an account with a personal PIN, shown once, and records it in the audit log', async () => {
     const s = await setup();
     const r = await call('POST', 'users', { token: s.adminToken, body: { email: 'New.Person@Example.com', name: 'New', role: 'manager' } });
     expect(r.status).toBe(201);
     expect(r.body.user.email).toBe('new.person@example.com');
     expect(r.body.user.status).toBe('active');
-    expect(typeof r.body.temporaryPassword).toBe('string');
-    expect(r.body.temporaryPassword.length).toBeGreaterThanOrEqual(12);
-    expect(mailer.sent.length).toBe(0); // no email needed
+    expect(r.body.pin).toMatch(/^\d{4}$/);
+    expect(mailer.sent.length).toBe(0);
     expect(store.audit.find(a => a.action === 'user.create')).toMatchObject({ actor_id: s.admin.id, ip: IP, user_agent: UA });
   });
 
-  it('the new person must change the temporary password before using the app', async () => {
+  it('a new person signs in with their PIN', async () => {
     const s = await setup();
-    const r = await call('POST', 'users', { token: s.adminToken, body: { email: 'temp@example.com', name: 'Temp', role: 'user' } });
-    const login = await svc.login(deps(), { ip: IP, userAgent: UA }, { email: 'temp@example.com', password: r.body.temporaryPassword });
+    const r = await call('POST', 'users', { token: s.adminToken, body: { name: 'Counter Person', role: 'user' } });
+    expect(r.body.user.email).toMatch(/@no-email\.invalid$/);
+    const login = await svc.pinLogin(deps(), { ip: IP, userAgent: UA }, { pin: r.body.pin });
     expect(login.status).toBe(200);
     const token = (login.body as { accessToken: string }).accessToken;
-    expect((login.body as { user: { mustChangePassword: boolean } }).user.mustChangePassword).toBe(true);
-    // Orders and admin routes refuse the account until it changes the password.
-    expect(await svc.authenticate(deps(), token)).toBeNull();
-    expect(await svc.authenticate(deps(), token, true)).not.toBeNull();
-    const change = await svc.changePassword(deps(), { ip: IP, userAgent: UA }, (await svc.authenticate(deps(), token, true))!, { currentPassword: r.body.temporaryPassword, newPassword: 'my own passphrase' });
-    expect(change.status).toBe(200);
     expect(await svc.authenticate(deps(), token)).not.toBeNull();
+    expect((await svc.pinLogin(deps(), { ip: '198.51.100.99', userAgent: 'x' }, { pin: '0000' })).status).toBe(401);
   });
 
-  it('a wrong current password does not change anything', async () => {
+  it('an Admin resets a PIN, which signs the person out and retires the old PIN', async () => {
     const s = await setup();
-    const r = await call('POST', 'users', { token: s.adminToken, body: { email: 'temp2@example.com', name: 'T', role: 'user' } });
-    const login = await svc.login(deps(), { ip: IP, userAgent: UA }, { email: 'temp2@example.com', password: r.body.temporaryPassword });
-    const auth = await svc.authenticate(deps(), (login.body as { accessToken: string }).accessToken, true);
-    expect((await svc.changePassword(deps(), ctx(), auth!, { currentPassword: 'not the temp one', newPassword: 'my own passphrase' })).status).toBe(400);
-    expect(store.users.find(u => u.email === 'temp2@example.com')!.must_change_password).toBe(true);
-  });
-
-  it('an Admin can reset a staff password, which signs them out and forces a change', async () => {
-    const s = await setup();
-    const userToken = await tokenFor('staff@example.com');
-    const r = await call('POST', `users/${s.staff.id}/reset-password`, { token: s.adminToken });
+    const created = await call('POST', 'users', { token: s.adminToken, body: { name: 'Lost Pin', role: 'user' } });
+    const first = (await svc.pinLogin(deps(), { ip: IP, userAgent: UA }, { pin: created.body.pin })).body as { accessToken: string };
+    const r = await call('POST', `users/${created.body.user.id}/reset-pin`, { token: s.adminToken });
     expect(r.status).toBe(200);
-    expect(await svc.authenticate(deps(), userToken)).toBeNull();
-    const login = await svc.login(deps(), { ip: IP, userAgent: UA }, { email: 'staff@example.com', password: r.body.temporaryPassword });
-    expect(login.status).toBe(200);
-    expect(store.audit.find(a => a.action === 'user.password_reset')).toMatchObject({ target_id: s.staff.id });
-    expect(JSON.stringify(store.audit)).not.toContain(r.body.temporaryPassword);
+    expect(r.body.pin).toMatch(/^\d{4}$/);
+    expect(await svc.authenticate(deps(), first.accessToken)).toBeNull();
+    expect((await svc.pinLogin(deps(), { ip: IP, userAgent: UA }, { pin: created.body.pin })).status).toBe(401);
+    expect((await svc.pinLogin(deps(), { ip: IP, userAgent: UA }, { pin: r.body.pin })).status).toBe(200);
+    expect(JSON.stringify(store.audit)).not.toContain(r.body.pin);
   });
 
-  it('a manager can reset a User password but not an Admin or Manager', async () => {
+  it('a manager can reset a User PIN but not an Admin or Manager', async () => {
     const s = await setup();
     const other = await account('mgr2@example.com', 'manager');
-    expect((await call('POST', `users/${s.staff.id}/reset-password`, { token: s.managerToken })).status).toBe(200);
-    expect((await call('POST', `users/${s.admin.id}/reset-password`, { token: s.managerToken })).status).toBe(403);
-    expect((await call('POST', `users/${other.id}/reset-password`, { token: s.managerToken })).status).toBe(403);
+    expect((await call('POST', `users/${s.staff.id}/reset-pin`, { token: s.managerToken })).status).toBe(200);
+    expect((await call('POST', `users/${s.admin.id}/reset-pin`, { token: s.managerToken })).status).toBe(403);
+    expect((await call('POST', `users/${other.id}/reset-pin`, { token: s.managerToken })).status).toBe(403);
   });
 
-  it('an Admin cannot reset their own password through the admin route', async () => {
+  it('an Admin cannot reset their own PIN through the admin route', async () => {
     const s = await setup();
-    expect((await call('POST', `users/${s.admin.id}/reset-password`, { token: s.adminToken })).status).toBe(400);
+    expect((await call('POST', `users/${s.admin.id}/reset-pin`, { token: s.adminToken })).status).toBe(400);
   });
 
   it('a manager cannot create an Admin or Manager account', async () => {
     const s = await setup();
-    expect((await call('POST', 'users', { token: s.managerToken, body: { email: 'boss2@example.com', name: 'B', role: 'manager' } })).status).toBe(403);
-    expect((await call('POST', 'users', { token: s.managerToken, body: { email: 'staff2@example.com', name: 'S', role: 'user' } })).status).toBe(201);
+    expect((await call('POST', 'users', { token: s.managerToken, body: { name: 'B', role: 'manager' } })).status).toBe(403);
+    expect((await call('POST', 'users', { token: s.managerToken, body: { name: 'S', role: 'user' } })).status).toBe(201);
   });
 
   it('rejects an email already in use', async () => {
@@ -417,7 +404,7 @@ describe('audit log', () => {
 // ── First Admin setup ────────────────────────────────────────────────────
 
 describe('first admin setup', () => {
-  const body = { setupToken: SETUP, email: 'owner@example.com', name: 'Owner', password: PASSWORD };
+  const body = { setupToken: SETUP, email: 'owner@example.com', name: 'Owner', pin: '4821' };
 
   it('is hidden unless SETUP_TOKEN is set', async () => {
     expect((await call('POST', 'bootstrap', { body })).status).toBe(404);
@@ -437,9 +424,9 @@ describe('first admin setup', () => {
     expect(second.status).toBe(404);
   });
 
-  it('can sign in afterwards', async () => {
+  it('the owner can sign in with the PIN afterwards', async () => {
     await call('POST', 'bootstrap', { body, setup: SETUP });
-    expect((await svc.login(deps(), { ip: IP, userAgent: UA }, { email: 'owner@example.com', password: PASSWORD })).status).toBe(200);
+    expect((await svc.pinLogin(deps(), { ip: IP, userAgent: UA }, { pin: '4821' })).status).toBe(200);
   });
 });
 

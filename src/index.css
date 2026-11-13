@@ -735,3 +735,23 @@ input:focus-visible,textarea:focus-visible,select:focus-visible{outline:none}
 .kv + .kv{border-top:1px solid var(--line2,#F1EFEA)}
 .kv.total{padding-top:var(--s4)}
 .cadgrid{align-content:start;grid-auto-rows:min-content}
+
+/* 8. PIN sign-in ------------------------------------------------------------- */
+.pin-screen{align-items:center;justify-content:center}
+.pin-main{flex:1;display:flex;align-items:center;justify-content:center;padding:var(--s6)}
+.pin-card{width:min(420px,100%);align-items:stretch;text-align:center;gap:var(--s4);padding:var(--s8) var(--s6)}
+.pin-brand{width:56px;height:56px;margin:0 auto;border-radius:var(--r-lg);background:var(--text);color:var(--bg);
+  display:flex;align-items:center;justify-content:center;font:600 24px var(--serif)}
+.pin-title{font:600 30px/1.1 var(--serif);margin:0;color:var(--text)}
+.pin-dots{display:flex;gap:var(--s3);justify-content:center;min-height:20px;margin:var(--s2) 0}
+.pin-dot{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--border-strong);transition:background var(--t-fast)}
+.pin-dot.filled{background:var(--text);border-color:var(--text)}
+.pin-keys{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s3);max-width:300px;width:100%;margin:0 auto}
+.pin-key{min-height:68px;border-radius:var(--r-lg);border:1px solid var(--border);background:var(--surface);
+  font:500 26px var(--font);color:var(--text);cursor:pointer;box-shadow:var(--e1);transition:background var(--t-fast),transform 60ms}
+.pin-key:hover{background:var(--surface-2)}
+.pin-key:active{transform:scale(.97)}
+.pin-key.ghost{background:transparent;border-color:transparent;box-shadow:none;color:var(--text-2);font-size:22px}
+.pin-key:disabled{opacity:.4;cursor:not-allowed}
+.pin-submit{width:100%;max-width:300px;margin:var(--s2) auto 0}
+.pin-hint{margin:0}

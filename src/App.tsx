@@ -7,7 +7,7 @@ import { MarketProvider, useMarket } from './order/market';
 import { WorkshopTicket } from './order/ticket';
 import { newOrderNo } from './order/state';
 import { loadSession, session } from './auth/client';
-import { AuthScreen, ChangePasswordScreen, screenFromUrl } from './auth/AuthScreens';
+import { PinScreen } from './auth/AuthScreens';
 import { AccountModal } from './auth/Account';
 import { TeamModal } from './auth/Team';
 
@@ -96,11 +96,7 @@ function Gate() {
     void loadSession().finally(() => setReady(true));
   }, []);
   if (!ready) return <div className="app" style={{ alignItems: 'center', justifyContent: 'center' }}><p className="muted">Loading…</p></div>;
-  if (!user) {
-    const { screen, token } = screenFromUrl();
-    return <AuthScreen key={screen + token} screen={screen} token={token} />;
-  }
-  if (user.mustChangePassword) return <ChangePasswordScreen onDone={() => { /* session is refreshed */ }} />;
+  if (!user) return <PinScreen />;
   return <Counter />;
 }
 

@@ -19,7 +19,7 @@ const listQuery = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(25),
 });
 const inviteBody = z.object({
-  email: z.string().trim().toLowerCase().email().max(254),
+  email: z.string().trim().toLowerCase().email().max(254).optional(),
   name: z.string().trim().min(1).max(120),
   role: z.enum(ROLES).default('user'),
 });
@@ -32,7 +32,7 @@ const bootstrapBody = z.object({
   setupToken: z.string().min(20).max(200),
   email: z.string().trim().toLowerCase().email().max(254),
   name: z.string().trim().min(1).max(120),
-  password: z.string().min(12, 'Use at least 12 characters').max(128),
+  pin: z.string().regex(/^\d{4,6}$/, 'Use a PIN of 4 to 6 digits'),
 });
 
 function body(req: VercelRequest): unknown {
@@ -87,7 +87,7 @@ export async function routeAdmin(
       }
       if (method === 'POST' && action === 'suspend') return reply(res, await admin.suspendUser(deps, ctx, auth, id));
       if (method === 'POST' && action === 'reactivate') return reply(res, await admin.reactivateUser(deps, ctx, auth, id));
-      if (method === 'POST' && action === 'reset-password') return reply(res, await admin.resetPassword(deps, ctx, auth, id));
+      if (method === 'POST' && action === 'reset-pin') return reply(res, await admin.resetPin(deps, ctx, auth, id));
       if (method === 'DELETE' && !action) return reply(res, await admin.deleteUser(deps, ctx, auth, id));
     }
     if (method === 'GET' && route === 'audit') {

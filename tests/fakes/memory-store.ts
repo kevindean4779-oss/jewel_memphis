@@ -42,13 +42,16 @@ export class MemoryStore implements Store {
   async getUserByEmail(email: string) {
     return this.users.find(u => u.email === email && !u.deleted_at) ?? null;
   }
+  async findUserByPinLookup(lookup: string) {
+    return this.users.find(u => u.pin_lookup === lookup && !u.deleted_at) ?? null;
+  }
   async getUserById(id: string) {
     return this.users.find(u => u.id === id && !u.deleted_at) ?? null;
   }
   async createUser(row: Partial<UserRow> & { email: string; role: Role; status: UserStatus }) {
     const u: UserRow = {
       id: randomUUID(), name: '', password_hash: null, email_verified_at: null, totp_secret_enc: null,
-      totp_enabled: false, totp_last_step: null, must_change_password: false, failed_attempts: 0, locked_until: null, last_login_at: null,
+      totp_enabled: false, totp_last_step: null, must_change_password: false, pin_lookup: null, failed_attempts: 0, locked_until: null, last_login_at: null,
       deleted_at: null, created_at: new Date().toISOString(), ...row,
     };
     this.users.push(u);

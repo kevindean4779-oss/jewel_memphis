@@ -27,6 +27,8 @@ export const schemas = {
     role: z.enum(['admin', 'manager', 'user']).optional(),
   }),
   setStatus: z.object({ status: z.enum(['active', 'suspended']) }),
+  pinLogin: z.object({ pin: z.string().regex(/^\d{4,6}$/, 'Enter your 4 to 6 digit PIN') }),
+  changePin: z.object({ pin: z.string().regex(/^\d{4,6}$/, 'Use a PIN of 4 to 6 digits') }),
   changePassword: z.object({ currentPassword: z.string().min(1).max(128), newPassword: password }),
 };
 

@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ApiError, authed, refresh, session, signOut } from './client';
-import SetupLink from './SetupLink';
+import { authed, changeOwnPin, session, signOut } from './client';
 
 interface SessionRow { id: string; createdAt: string; lastUsedAt: string; ip: string | null; userAgent: string | null; current: boolean }
 
@@ -47,7 +46,7 @@ export function AccountModal({ onClose }: { onClose: () => void }) {
           await signOut();
         }}>Sign out everywhere</button>
 
-        <TwoFactor enabled={me.totpEnabled} onChanged={() => setMsg('Two-factor settings saved.')} onError={setErr} />
+        <ChangePin onChanged={() => setMsg('Your PIN is changed.')} onError={setErr} />
 
         <div className="actions">
           <button className="btn ghost" onClick={async () => { await signOut(); onClose(); }}>Sign out</button>
@@ -58,70 +57,26 @@ export function AccountModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-function TwoFactor({ enabled, onChanged, onError }: { enabled: boolean; onChanged: () => void; onError: (m: string) => void }) {
-  const [setup, setSetup] = useState<{ secret: string; otpauth: string } | null>(null);
-  const [code, setCode] = useState('');
-  const [password, setPassword] = useState('');
-  const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
+function ChangePin({ onChanged, onError }: { onChanged: () => void; onError: (m: string) => void }) {
+  const [next, setNext] = useState('');
+  const [again, setAgain] = useState('');
   const [busy, setBusy] = useState(false);
-  const fail = (e: unknown) => onError(e instanceof ApiError || e instanceof Error ? e.message : 'Something went wrong.');
-
-  if (backupCodes) {
-    return (
-      <>
-        <div className="sec">Backup codes</div>
-        <p className="muted">Save these somewhere safe. Each works once, and they won't be shown again.</p>
-        <div className="fields">{backupCodes.map(c => <code key={c} style={{ fontSize: 16 }}>{c}</code>)}</div>
-        <button className="btn primary" onClick={() => { setBackupCodes(null); onChanged(); }}>I have saved them</button>
-      </>
-    );
-  }
-
-  if (enabled) {
-    return (
-      <>
-        <div className="sec">Two-factor sign-in <span className="hint">on</span></div>
-        <div className="fields">
-          <label className="field"><span>Password</span><input type="password" value={password} onChange={e => setPassword(e.target.value)} /></label>
-          <label className="field"><span>Current code</span><input inputMode="numeric" value={code} onChange={e => setCode(e.target.value)} /></label>
-        </div>
-        <button className="btn" disabled={busy || !password || !code} onClick={async () => {
-          setBusy(true);
-          try { await authed('/api/auth/2fa/disable', { method: 'POST', body: JSON.stringify({ password, code }) }); setPassword(''); setCode(''); await refresh(); onChanged(); }
-          catch (e) { fail(e); } finally { setBusy(false); }
-        }}>Turn off two-factor</button>
-      </>
-    );
-  }
-
-  if (!setup) {
-    return (
-      <>
-        <div className="sec">Two-factor sign-in <span className="hint">off</span></div>
-        <p className="muted">Ask for a code from an authenticator app each time you sign in.</p>
-        <button className="btn" disabled={busy} onClick={async () => {
-          setBusy(true);
-          try { setSetup(await authed<{ secret: string; otpauth: string }>('/api/auth/2fa/setup', { method: 'POST' })); }
-          catch (e) { fail(e); } finally { setBusy(false); }
-        }}>Set up two-factor</button>
-      </>
-    );
-  }
-
+  const valid = /^\d{4,6}$/.test(next) && next === again;
   return (
     <>
-      <div className="sec">Set up two-factor</div>
-      <p className="muted">Add this key to an authenticator app (Google Authenticator, 1Password, Authy), then enter the 6-digit code it shows.</p>
-      <SetupLink text={setup.otpauth} />
-      <code style={{ wordBreak: 'break-all' }}>{setup.secret}</code>
-      <label className="field"><span>6-digit code</span><input inputMode="numeric" value={code} onChange={e => setCode(e.target.value)} /></label>
-      <button className="btn primary" disabled={busy || code.length !== 6} onClick={async () => {
+      <div className="sec">Change my PIN</div>
+      <div className="fields">
+        <label className="field"><span>New PIN (4 to 6 digits)</span>
+          <input type="password" inputMode="numeric" maxLength={6} value={next} onChange={e => setNext(e.target.value.replace(/\D/g, ''))} /></label>
+        <label className="field"><span>Type it again</span>
+          <input type="password" inputMode="numeric" maxLength={6} value={again} onChange={e => setAgain(e.target.value.replace(/\D/g, ''))} /></label>
+      </div>
+      <button className="btn" disabled={busy || !valid} onClick={async () => {
         setBusy(true);
-        try {
-          const r = await authed<{ backupCodes: string[] }>('/api/auth/2fa/enable', { method: 'POST', body: JSON.stringify({ code }) });
-          setSetup(null); setCode(''); setBackupCodes(r.backupCodes); await refresh();
-        } catch (e) { fail(e); } finally { setBusy(false); }
-      }}>Turn on two-factor</button>
+        try { await changeOwnPin(next); setNext(''); setAgain(''); onChanged(); }
+        catch (e) { onError((e as Error).message || 'Could not change the PIN.'); }
+        finally { setBusy(false); }
+      }}>Save new PIN</button>
     </>
   );
 }

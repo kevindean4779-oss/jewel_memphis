@@ -19,6 +19,7 @@ export interface UserRow {
   totp_enabled: boolean;
   totp_last_step: number | null;
   must_change_password: boolean;
+  pin_lookup: string | null;
   failed_attempts: number;
   locked_until: string | null;
   last_login_at: string | null;
@@ -80,6 +81,7 @@ export interface Store {
   countActiveAdmins(): Promise<number>;
   getUserByEmail(email: string): Promise<UserRow | null>;
   getUserById(id: string): Promise<UserRow | null>;
+  findUserByPinLookup(lookup: string): Promise<UserRow | null>;
   createUser(row: Partial<UserRow> & { email: string; role: Role; status: UserStatus }): Promise<UserRow>;
   updateUser(id: string, patch: Partial<UserRow>): Promise<void>;
 
@@ -131,6 +133,10 @@ export class SupabaseStore implements Store {
 
   getUserByEmail(email: string) {
     return this.one<UserRow>(this.db.from('users').select('*').eq('email', email).is('deleted_at', null).maybeSingle());
+  }
+
+  findUserByPinLookup(lookup: string) {
+    return this.one<UserRow>(this.db.from('users').select('*').eq('pin_lookup', lookup).is('deleted_at', null).maybeSingle());
   }
 
   getUserById(id: string) {
