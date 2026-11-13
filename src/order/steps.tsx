@@ -358,9 +358,12 @@ export function CadStep({ s, dispatch }: StepProps) {
           <Kv label="Stones" value={`${STONES[s.stone].name}, 0.20 ct`} />
           <div className="kv total"><span>Price incl. tax</span><b>{money(p.total)}</b></div>
           <div className="sec" style={{ marginTop: 14 }}>Rule checks</div>
-          <div>
+          <div className="rule-list">
             {rules.map(r => (
-              <div className="kv" key={r.label}><span>{r.ok ? '✓' : '✕'} {r.label}</span><b>{r.detail}</b></div>
+              <div className={`rule ${r.ok ? '' : 'fail'}`} key={r.label}>
+                <span>{r.ok ? '✓' : '✕'} {r.label}</span>
+                <b>{r.detail}</b>
+              </div>
             ))}
           </div>
           <p className="muted">The model uses the same width, height and depth as the price. Exact volume comes from this model. Print tolerance is ±5% (minimum ±0.35 mm).</p>

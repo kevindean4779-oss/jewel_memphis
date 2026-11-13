@@ -57,14 +57,15 @@ function Counter() {
       </header>
 
       <div className="toolbar">
-        <button className="btn" onClick={() => setModal('orders')}>Orders</button>
-        <button className="btn" onClick={() => setModal('rates')}>
+        <button className="btn ghost" onClick={() => setModal('orders')}>Orders</button>
+        <button className="btn ghost status" onClick={() => setModal('rates')}>
+          <span className={`dot-live ${mk.rates.source === 'live' ? 'on' : ''}`} aria-hidden="true" />
           Rates <span className="faint">{mk.rates.source === 'live' ? 'live' : 'owner'}</span>
         </button>
-        <button className="btn" onClick={() => setModal('settings')}>Settings</button>
-        {me && (me.role === 'admin' || me.role === 'manager') && <button className="btn" onClick={() => setModal('team')}>Team</button>}
-        <button className="btn" onClick={() => setModal('account')}>{me?.name || me?.email}</button>
-        <button className="btn" onClick={() => dispatch({ type: 'newOrder', orderNo: newOrderNo() })}>New order</button>
+        <button className="btn ghost" onClick={() => setModal('settings')}>Settings</button>
+        {me && (me.role === 'admin' || me.role === 'manager') && <button className="btn ghost" onClick={() => setModal('team')}>Team</button>}
+        <button className="btn ghost" onClick={() => setModal('account')}>{me?.name || me?.email}</button>
+        <button className="btn outline" onClick={() => dispatch({ type: 'newOrder', orderNo: newOrderNo() })}>New order</button>
       </div>
 
       <main>
