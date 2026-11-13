@@ -1,6 +1,7 @@
+import { randomUUID } from 'node:crypto';
 import { safeEqual } from './crypto.js';
 import { can, type Permission, type Role } from './rbac.js';
-import { hashPassword, passwordProblem, temporaryPassword } from './passwords.js';
+import { pinLookup, pinProblem, randomPin } from './pin.js';
 import { resendVerification, type Authed, type Ctx, type Deps, type Result } from './auth-service.js';
 import type { UserRow } from './store.js';
 
@@ -69,48 +70,56 @@ export async function getUser(deps: Deps, auth: Authed, id: string): Promise<Res
   return u ? { status: 200, body: { user: adminView(u) } } : notFound();
 }
 
-// Creates an account directly. The Admin (or a Manager, for Users) gets a temporary
-// password to hand over, shown once. The person must choose their own on first sign-in.
+// A PIN no active account uses. Tries a few random 4-digit PINs.
+async function freshPin(deps: Deps): Promise<string> {
+  for (let i = 0; i < 50; i++) {
+    const pin = randomPin();
+    if (!(await deps.store.findUserByPinLookup(pinLookup(pin)))) return pin;
+  }
+  throw new Error('could not find a free PIN');
+}
+
+// Creates a person with a personal PIN, shown once. Email is optional for counter staff.
 export async function createAccount(
   deps: Deps,
   ctx: Ctx,
   auth: Authed,
-  input: { email: string; name: string; role: Role },
+  input: { email?: string; name: string; role: Role },
 ): Promise<Result> {
   const denied = require_(auth, 'users:invite');
   if (denied) return denied;
   // Only someone allowed to change roles can create an Admin or Manager.
   if (input.role !== 'user' && !can(auth.user.role, 'users:role')) return forbidden();
-  if (await deps.store.getUserByEmail(input.email)) {
+  if (input.email && (await deps.store.getUserByEmail(input.email))) {
     return { status: 409, body: { error: 'An account with that email already exists.' } };
   }
-  const temp = temporaryPassword();
+  const pin = await freshPin(deps);
   const user = await deps.store.createUser({
-    email: input.email,
+    email: input.email ?? `no-email-${randomUUID().slice(0, 8)}@no-email.invalid`,
     name: input.name,
     role: input.role,
     status: 'active',
-    password_hash: await hashPassword(temp),
     email_verified_at: new Date().toISOString(),
-    must_change_password: true,
+    pin_lookup: pinLookup(pin),
   });
   await audit(deps, ctx, auth, 'user.create', user.id, { role: input.role });
-  return { status: 201, body: { user: adminView(user), temporaryPassword: temp } };
+  return { status: 201, body: { user: adminView(user), pin } };
 }
 
-// New temporary password for an account, e.g. when someone forgets theirs. Signs them out everywhere.
-export async function resetPassword(deps: Deps, ctx: Ctx, auth: Authed, targetId: string): Promise<Result> {
+// New PIN for a person, e.g. when they forget it. Shown once.
+export async function resetPin(deps: Deps, ctx: Ctx, auth: Authed, targetId: string): Promise<Result> {
   const denied = require_(auth, 'users:reset_password');
   if (denied) return denied;
   const target = await deps.store.getUserById(targetId);
   if (!target) return notFound();
   if (!canManage(auth.user.role, target)) return forbidden();
-  if (target.id === auth.user.id) return { status: 400, body: { error: 'Use Change password on your own account.' } };
-  const temp = temporaryPassword();
-  await deps.store.updateUser(target.id, { password_hash: await hashPassword(temp), must_change_password: true, failed_attempts: 0, locked_until: null });
+  if (target.id === auth.user.id) return { status: 400, body: { error: 'Change your own PIN from your account.' } };
+  const pin = await freshPin(deps);
+  await deps.store.updateUser(target.id, { pin_lookup: pinLookup(pin) });
+  // Old sign-ins end, so a lost or shared PIN can't keep working.
   await deps.store.revokeUserSessions(target.id, 'password_reset');
-  await audit(deps, ctx, auth, 'user.password_reset', target.id);
-  return { status: 200, body: { temporaryPassword: temp } };
+  await audit(deps, ctx, auth, 'user.pin_reset', target.id);
+  return { status: 200, body: { pin } };
 }
 
 export async function updateUser(
@@ -225,20 +234,23 @@ export async function listAudit(deps: Deps, auth: Authed, page: number, pageSize
 export async function bootstrapAdmin(
   deps: Deps,
   ctx: Ctx,
-  input: { setupToken: string; email: string; name: string; password: string },
+  input: { setupToken: string; email: string; name: string; pin: string },
   setupTokenFromEnv: string | undefined,
 ): Promise<Result> {
   const hidden: Result = { status: 404, body: { error: 'Not found' } };
   if (!setupTokenFromEnv) return hidden;
   if (!safeEqual(input.setupToken, setupTokenFromEnv)) return hidden;
   if ((await deps.store.countActiveAdmins()) > 0) return hidden;
-  const problem = passwordProblem(input.password);
+  const problem = pinProblem(input.pin);
   if (problem) return { status: 400, body: { error: problem } };
 
-  const user = await deps.store.createUser({ email: input.email, name: input.name, role: 'admin', status: 'active' });
-  await deps.store.updateUser(user.id, {
-    password_hash: await hashPassword(input.password),
+  const user = await deps.store.createUser({
+    email: input.email,
+    name: input.name,
+    role: 'admin',
+    status: 'active',
     email_verified_at: new Date().toISOString(),
+    pin_lookup: pinLookup(input.pin),
   });
   await deps.store.appendAudit({ actor_id: null, action: 'admin.bootstrap', target_id: user.id, ip: ctx.ip, user_agent: ctx.userAgent });
   return { status: 201, body: { ok: true } };

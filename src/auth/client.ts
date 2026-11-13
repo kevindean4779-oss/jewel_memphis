@@ -78,6 +78,17 @@ export async function loadSession(): Promise<void> {
   if (!(await refresh())) return;
 }
 
+// Signs in with a personal PIN. The server sets the refresh cookie; the token stays in memory.
+export async function pinSignIn(pin: string): Promise<void> {
+  const r = await call<{ accessToken: string; user: Me }>('/api/auth/pin-login', { method: 'POST', body: JSON.stringify({ pin }) }, false);
+  setSession(r.accessToken, r.user);
+}
+
+// Changes the signed-in person's own PIN.
+export async function changeOwnPin(pin: string): Promise<void> {
+  await authed('/api/auth/change-pin', { method: 'POST', body: JSON.stringify({ pin }) });
+}
+
 export type SignInResult = { done: true } | { done: false; mfaToken: string };
 
 export async function signIn(email: string, password: string): Promise<SignInResult> {

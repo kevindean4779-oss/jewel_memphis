@@ -53,6 +53,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const input = parse(res, schemas.login, req);
       if (!input) return;
       result = await svc.login(deps, ctx, input);
+    } else if (req.method === 'POST' && route === 'pin-login') {
+      const input = parse(res, schemas.pinLogin, req);
+      if (!input) return;
+      result = await svc.pinLogin(deps, ctx, input);
     } else if (req.method === 'POST' && route === 'login/2fa') {
       const input = parse(res, schemas.mfaLogin, req);
       if (!input) return;
@@ -88,7 +92,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!auth) return fail(res, 401, 'Sign in to continue');
 
       if (req.method === 'GET' && route === 'me') result = await svc.me(deps, auth);
-      else if (req.method === 'POST' && route === 'change-password') {
+      else if (req.method === 'POST' && route === 'change-pin') {
+        const input = parse(res, schemas.changePin, req);
+        if (!input) return;
+        result = await svc.changePin(deps, ctx, auth, input);
+      } else if (req.method === 'POST' && route === 'change-password') {
         const input = parse(res, schemas.changePassword, req);
         if (!input) return;
         result = await svc.changePassword(deps, ctx, auth, input);
