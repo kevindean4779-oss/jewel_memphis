@@ -22,12 +22,13 @@ jobs:
     timeout-minutes: 5
     env:
       # Vercel sets target_url to the deployment. Scheduled runs use the repo variable.
-      SITE_URL: ${{ github.event.deployment_status.target_url || vars.PRODUCTION_URL }}
+      # Falls back to the production address, so the scheduled run works without extra setup.
+      SITE_URL: ${{ github.event.deployment_status.target_url || vars.PRODUCTION_URL || 'https://golden-jewelers-memphis.vercel.app' }}
     steps:
       - name: Check the site URL is set
         run: |
           if [ -z "$SITE_URL" ]; then
-            echo "::error::Set the repository variable PRODUCTION_URL, e.g. https://your-site.vercel.app"
+            echo "::error::SITE_URL is empty"
             exit 1
           fi
           echo "Testing $SITE_URL"
