@@ -16,7 +16,7 @@ export function manualRates(cfg: OwnerConfig): Rates {
     silverGram: cfg.manualOz.silver / TROY_OZ_GRAMS,
     platinumGram: cfg.manualOz.platinum / TROY_OZ_GRAMS,
     source: 'manual',
-    time: 'owner rates',
+    time: 'Entered in Settings',
   };
 }
 

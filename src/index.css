@@ -165,7 +165,9 @@ main {
 
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s5); align-items: stretch; }
 .grid2.l { grid-template-columns: minmax(0, 360px) minmax(0, 1fr); }
+.grid2.cad { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); }
 .col { display: flex; flex-direction: column; gap: var(--s5); min-width: 0; }
+.budget-col { position: sticky; top: var(--s4); align-self: start; }
 .grow { flex: 1; }
 .divider { height: 1px; background: var(--border); margin: var(--s2) 0; }
 
@@ -460,6 +462,7 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 /* iPad portrait (≈768–1024) and small landscape: one column, shorter stepper labels */
 @media (max-width: 900px) {
   .grid2, .grid2.l { grid-template-columns: 1fr; }
+  .budget-col { position: static; }
   .methods { grid-template-columns: 1fr; }
   .cadgrid { grid-template-columns: 1fr; }
   .stepper .st .lbl { display: none; }
@@ -471,12 +474,13 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
   .header-inner { flex-wrap: wrap; padding: var(--s3) var(--s4) var(--s2); gap: var(--s2) var(--s3); }
   .brand { flex-basis: calc(100% - 0px); }
   .toolbar { width: 100%; flex-wrap: wrap; gap: var(--s1) 0; }
-  .toolbar .btn { padding: 0 var(--s2); font-size: var(--fs-xs); min-height: 36px; height: 36px; }
+  .toolbar .btn { padding: 0 var(--s2); font-size: var(--fs-xs); min-height: 44px; height: 44px; }
   .stepper { display: none; }
   .steps-bar { display: none; }
   .step-count { display: block; padding: 0 var(--s4) var(--s3); margin-top: calc(var(--s1) * -1); }
   main { padding: var(--s4); gap: var(--s4); }
   .card { padding: var(--s5); border-radius: var(--r-lg); }
+  .grid2.cad { grid-template-columns: minmax(0, 1fr); }
   .fields, .size { grid-template-columns: 1fr; }
   .dims3 { grid-template-columns: repeat(3, 1fr); }
   .bottombar { flex-wrap: wrap; padding: var(--s3); }

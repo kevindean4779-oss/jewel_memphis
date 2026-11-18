@@ -37,7 +37,8 @@ function cadCamera(view: CadView, d: Dims, aspect: number): { cam: THREE.Camera;
     cam.lookAt(0, 0, 0);
     return { cam, span: null };
   }
-  const span = max * 0.62;
+  // Wider framing leaves room around the part for the dimension labels.
+  const span = max * 0.86;
   const cam = new THREE.OrthographicCamera(-span * aspect, span * aspect, span, -span, 0.1, 5000);
   if (view === 'front') cam.position.set(0, 0, 1000);
   if (view === 'side') cam.position.set(1000, 0, 0);
@@ -57,15 +58,21 @@ function drawDimLines(
   ctx.strokeStyle = '#6E665B';
   ctx.fillStyle = '#1C1A17';
   ctx.lineWidth = 1.2;
-  ctx.font = '600 15px Inter, sans-serif';
+  ctx.font = '600 26px Inter, sans-serif';
+  ctx.textBaseline = 'alphabetic';
   const yb = cy + hh + 26;
   ctx.beginPath(); ctx.moveTo(cx - hw, yb); ctx.lineTo(cx + hw, yb); ctx.stroke();
   ctx.textAlign = 'center';
-  ctx.fillText(lh, cx, yb + 18);
-  const xr = cx + hw + 26;
+  ctx.fillText(lh, cx, yb + 36);
+  // Vertical label runs along its dimension line, so it never needs horizontal room.
+  const xr = cx + hw + 22;
   ctx.beginPath(); ctx.moveTo(xr, cy - hh); ctx.lineTo(xr, cy + hh); ctx.stroke();
-  ctx.textAlign = 'left';
-  ctx.fillText(lv, xr + 8, cy + 5);
+  ctx.save();
+  ctx.translate(xr + 26, cy);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = 'center';
+  ctx.fillText(lv, 0, 0);
+  ctx.restore();
 }
 
 export function CadViews({ dims }: { dims: Dims }) {

@@ -200,7 +200,7 @@ export function EstimateStep({ s, dispatch, onShowRates }: StepProps & { onShowR
 
   const volNote = s.exact
     ? <span className="pill ok">Exact · from CAD</span>
-    : <span className="pill warn">Estimate · final price after CAD</span>;
+    : <span className="pill warn">Estimate · exact after CAD</span>;
 
   const top = s.mode === 'picture'
     ? <div className="photo" style={{ minHeight: 220 }}><b>Photo of the ornament</b><span style={{ fontSize: 13 }}>Size estimated from the photo</span></div>
@@ -236,11 +236,11 @@ export function EstimateStep({ s, dispatch, onShowRates }: StepProps & { onShowR
             {!isOrig && <button className="link" style={{ alignSelf: 'flex-start' }} onClick={() => dispatch({ type: 'resetOriginal' })}>Reset to original design</button>}
           </section>
           <section className="card">
-            <div className="sec">Edit design</div>
+            <div className="sec">Edit design <span className="hint">millimetres</span></div>
             <div className="size">
-              <NumField label="Width mm" value={s.dims.w} onChange={v => dispatch({ type: 'dim', key: 'w', value: v })} />
-              <NumField label="Height mm" value={s.dims.h} onChange={v => dispatch({ type: 'dim', key: 'h', value: v })} />
-              <NumField label="Depth mm" value={s.dims.d} onChange={v => dispatch({ type: 'dim', key: 'd', value: v })} />
+              <NumField label="Width" value={s.dims.w} onChange={v => dispatch({ type: 'dim', key: 'w', value: v })} />
+              <NumField label="Height" value={s.dims.h} onChange={v => dispatch({ type: 'dim', key: 'h', value: v })} />
+              <NumField label="Depth" value={s.dims.d} onChange={v => dispatch({ type: 'dim', key: 'd', value: v })} />
             </div>
             <div className="sec" style={{ marginTop: 6 }}>Metal</div>
             <MetalChips s={s} dispatch={dispatch} />
@@ -249,7 +249,7 @@ export function EstimateStep({ s, dispatch, onShowRates }: StepProps & { onShowR
           </section>
         </div>
 
-        <div className="col" style={{ minHeight: 0 }}>
+        <div className="col budget-col" style={{ minHeight: 0 }}>
           {!s.showBudget && (
             <section className="card">
               <div className="sec">Customer budget <span className="hint">optional</span></div>
@@ -322,7 +322,7 @@ export function EstimateStep({ s, dispatch, onShowRates }: StepProps & { onShowR
         <div className="right">
           <button className="btn ghost" onClick={() => dispatch({ type: 'go', step: 1 })}>← Back</button>
           <button className="btn primary lg" disabled={curOver} onClick={() => dispatch({ type: 'go', step: 3 })}>
-            Confirm and make CAD
+            Continue to CAD
           </button>
         </div>
       </div>
@@ -345,7 +345,7 @@ export function CadStep({ s, dispatch }: StepProps) {
   return (
     <>
       {banner}
-      <div className="grid2" style={{ gridTemplateColumns: '1.5fr 1fr' }}>
+      <div className="grid2 cad">
         <CadViews dims={s.dims} />
         <section className="card">
           <div className="sec">Size <span className="hint">fixed by design</span></div>
@@ -356,7 +356,10 @@ export function CadStep({ s, dispatch }: StepProps) {
           </div>
           <Kv label="Metal" value={`${KARATS[s.metal].label}, ${p.grams.toFixed(2)} g`} />
           <Kv label="Stones" value={`${STONES[s.stone].name}, 0.20 ct`} />
-          <div className="kv total"><span>Price incl. tax</span><b>{money(p.total)}</b></div>
+          <div className="kv total">
+            <span>{s.exact ? 'Exact price' : 'Estimated price'}</span>
+            <b>{money(p.total)}<small>incl. {TAX_SHORT}</small></b>
+          </div>
           <div className="sec" style={{ marginTop: 14 }}>Rule checks</div>
           <div className="rule-list">
             {rules.map(r => (

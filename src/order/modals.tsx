@@ -27,7 +27,7 @@ export function RatesModal({ mk, onClose }: { mk: Market; onClose: () => void })
   return (
     <Overlay onClose={onClose}>
       <div className="sec">
-        {mk.rates.source === 'live' ? 'Live spot rates' : 'Owner rates'} <span className="hint">{mk.rates.time}</span>
+        {mk.rates.source === 'live' ? 'Live spot rates' : 'Owner rates'} <span className="hint" style={{ textTransform: 'uppercase', letterSpacing: 'inherit' }}>{mk.rates.time}</span>
       </div>
       <table className="rates"><tbody>
         {rows.map(([label, v]) => <tr key={label}><td>{label}</td><td className="n">{money(v)}</td></tr>)}
