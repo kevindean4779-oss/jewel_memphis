@@ -1,6 +1,6 @@
 import type { ChangeEvent } from 'react';
 import { KARATS, METHODS, OCCASIONS, STONES, type Mode } from './data';
-import { allCadOk, allOptions, cadRules, custOk, dimsOk, price, readyDate, type Market, type Option } from './pricing';
+import { allCadOk, allOptions, cadRules, custOk, dimsOk, formatPhone, phoneError, price, readyDate, type Market, type Option } from './pricing';
 import { taxLabel } from './config';
 import { useMarket } from './market';
 import { fmtDate, isoOf, money, parseISO } from './format';
@@ -33,7 +33,18 @@ export function CustomerStep({ s, dispatch }: StepProps) {
               <input value={c.name} placeholder="e.g. Meera Sharma" onChange={set('name')} />
             </label>
             <label className="field"><span>Phone<span className="req">*</span></span>
-              <input value={c.phone} placeholder="(555) 000-0000" onChange={set('phone')} />
+              <input
+                value={c.phone}
+                inputMode="tel"
+                autoComplete="tel-national"
+                placeholder="(555) 000-0000"
+                aria-invalid={Boolean(phoneError(c.phone))}
+                aria-describedby={phoneError(c.phone) ? 'phone-error' : undefined}
+                onChange={e => dispatch({ type: 'cust', key: 'phone', value: formatPhone(e.target.value) })}
+              />
+              {phoneError(c.phone) && (
+                <small id="phone-error" role="alert" className="field-error">{phoneError(c.phone)}</small>
+              )}
             </label>
             <label className="field full"><span>Email<span className="opt">optional</span></span>
               <input type="email" value={c.email} placeholder="name@example.com" onChange={set('email')} />
@@ -76,7 +87,7 @@ export function CustomerStep({ s, dispatch }: StepProps) {
         </div>
       </section>
       <div className="actions">
-        <span className="faint">Name, phone and ornament name are required</span>
+        <span className="faint">{phoneError(c.phone) ?? 'Name, phone and ornament name are required'}</span>
         <div className="right">
           <button className="btn primary lg" disabled={!custOk(c)} onClick={() => dispatch({ type: 'go', step: 1 })}>
             Continue to design

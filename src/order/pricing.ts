@@ -89,8 +89,27 @@ export function dimsOk(d: Dims): boolean {
   return (['w', 'h', 'd'] as const).every(k => Number.isFinite(d[k]) && d[k] > 0);
 }
 
+// Phone numbers are 10 digits. Formatting characters are ignored.
+export function phoneDigits(phone: string): string {
+  return phone.replace(/\D/g, '');
+}
+
+// Shows (555) 000-0000 while typing; only digits are kept.
+export function formatPhone(raw: string): string {
+  const d = phoneDigits(raw);
+  if (d.length <= 3) return d ? `(${d}` : '';
+  if (d.length <= 6) return `(${d.slice(0, 3)}) ${d.slice(3)}`;
+  return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+}
+
+export function phoneError(phone: string): string | null {
+  const n = phoneDigits(phone).length;
+  if (n === 0) return null; // empty is handled by the required check
+  return n === 10 ? null : `Phone must be 10 digits. ${n} entered.`;
+}
+
 export function custOk(c: Customer): boolean {
-  return Boolean(c.name.trim() && c.phone.trim() && c.ornament.trim());
+  return Boolean(c.name.trim() && c.ornament.trim() && phoneDigits(c.phone).length === 10);
 }
 
 export interface CadRule {

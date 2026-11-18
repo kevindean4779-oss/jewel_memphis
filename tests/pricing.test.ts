@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_CONFIG, type OwnerConfig } from '../src/order/config';
-import { allCadOk, allOptions, cadRules, custOk, dimsOk, gramRate, leadDays, price, readyDate, type Market } from '../src/order/pricing';
+import { allCadOk, allOptions, cadRules, custOk, dimsOk, formatPhone, gramRate, leadDays, phoneError, price, readyDate, type Market } from '../src/order/pricing';
 import { TROY_OZ_GRAMS } from '../src/order/data';
 
 const rates = { gold24Gram: 130, silverGram: 1.6, platinumGram: 47, source: 'manual' as const, time: 'test' };
@@ -87,9 +87,19 @@ describe('input checks', () => {
     expect(dimsOk(dims)).toBe(true);
   });
   it('needs name, phone and ornament', () => {
-    const c = { name: 'A', phone: '1', email: '', ornament: 'X', occasion: '', needed: '', notes: '' };
+    const c = { name: 'A', phone: '(901) 555-0100', email: '', ornament: 'X', occasion: '', needed: '', notes: '' };
     expect(custOk(c)).toBe(true);
     expect(custOk({ ...c, phone: ' ' })).toBe(false);
+  });
+
+  it('phone must be exactly 10 digits', () => {
+    const c = { name: 'A', phone: '', email: '', ornament: 'X', occasion: '', needed: '', notes: '' };
+    expect(custOk({ ...c, phone: '901555' })).toBe(false);
+    expect(custOk({ ...c, phone: '90155501001' })).toBe(false);
+    expect(custOk({ ...c, phone: '(901) 555-0100' })).toBe(true);
+    expect(phoneError('901555')).toMatch(/10 digits/);
+    expect(phoneError('(901) 555-0100')).toBeNull();
+    expect(formatPhone('9015550100')).toBe('(901) 555-0100');
   });
 });
 
