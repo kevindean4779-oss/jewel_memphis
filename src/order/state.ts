@@ -12,6 +12,7 @@ export type Action =
   | { type: 'occasion'; value: string }
   | { type: 'mode'; mode: Mode }
   | { type: 'photo'; on: boolean }
+  | { type: 'photoPath'; path: string | null }
   | { type: 'dim'; key: keyof Dims; value: number }
   | { type: 'metal'; metal: Metal }
   | { type: 'stone'; stone: StoneKey }
@@ -40,6 +41,7 @@ export function blankOrder(orderNo: string): OrderState {
     cust: { name: '', phone: '', email: '', ornament: '', occasion: '', needed: '', notes: '' },
     mode: 'picture',
     photo: false,
+    photoPath: null,
     dims: { w: 22, h: 10, d: 5 },
     metal: '18K',
     stone: 'natural',
@@ -64,9 +66,11 @@ export function reduce(s: OrderState, a: Action): OrderState {
     case 'occasion':
       return { ...s, cust: { ...s.cust, occasion: s.cust.occasion === a.value ? '' : a.value } };
     case 'mode':
-      return { ...s, mode: a.mode, photo: false, exact: false };
+      return { ...s, mode: a.mode, photo: false, photoPath: null, exact: false };
     case 'photo':
       return { ...s, photo: a.on };
+    case 'photoPath':
+      return { ...s, photo: a.path !== null, photoPath: a.path };
     case 'dim':
       // Any size change invalidates the CAD model (the prototype only did this for valid sizes).
       return { ...s, dims: { ...s.dims, [a.key]: a.value }, exact: false };

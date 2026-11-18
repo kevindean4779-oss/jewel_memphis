@@ -30,6 +30,7 @@ export interface OrderState {
   cust: Customer;
   mode: Mode;
   photo: boolean;
+  photoPath: string | null; // stored ornament photo, set once the upload succeeds
   dims: Dims;
   metal: Metal;
   stone: StoneKey;

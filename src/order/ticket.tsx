@@ -3,6 +3,7 @@ import { price, readyDate } from './pricing';
 import { useMarket } from './market';
 import { fmtDate } from './format';
 import type { OrderState } from './types';
+import { photoUrl } from './photo';
 
 // Workshop job ticket. Hidden on screen; printed through the browser's print dialog.
 // It carries no retail prices: the bench needs metal, stones and dates.
@@ -24,6 +25,7 @@ export function WorkshopTicket({ s }: { s: OrderState }) {
           <tr><th>Ready by</th><td>{fmtDate(ready)}{needed ? ` · needed by ${fmtDate(needed)}` : ''}</td></tr>
           <tr><th>Deposit</th><td>{s.deposit}% collected before work starts</td></tr>
           <tr><th>Notes</th><td>{s.cust.notes || '—'}</td></tr>
+          {s.photoPath && <tr><th>Ornament photo</th><td><img className="ticket-photo" src={photoUrl(s.photoPath)} alt="Ornament" /></td></tr>}
         </tbody>
       </table>
     </div>

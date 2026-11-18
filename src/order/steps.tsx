@@ -1,4 +1,5 @@
 import { useRef, useState, type ChangeEvent } from 'react';
+import { deletePhoto, photoUrl, shrinkPhoto, uploadPhoto } from './photo';
 import { KARATS, METHODS, OCCASIONS, STONES, type Mode } from './data';
 import { allCadOk, allOptions, cadRules, custOk, dimsOk, price, readyDate, type Market, type Option } from './pricing';
 import { taxLabel } from './config';
@@ -92,26 +93,44 @@ export function DesignStep({ s, dispatch }: StepProps) {
   const { mk } = useMarket();
   const back = <button className="btn ghost" onClick={() => dispatch({ type: 'go', step: 0 })}>← Back</button>;
   const fileRef = useRef<HTMLInputElement>(null);
-  const [preview, setPreview] = useState<{ url: string; time: string } | null>(null);
+  const [preview, setPreview] = useState<string | null>(null); // this session's photo, shown at once
+  const [busy, setBusy] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const shown = preview ?? (s.photoPath ? photoUrl(s.photoPath) : null);
 
   // iPad and phone browsers open the camera for this input (capture="environment").
-  function onPhoto(e: ChangeEvent<HTMLInputElement>) {
+  // The photo is shrunk, uploaded, and its path saved on the order before it is used.
+  async function onPhoto(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    setPreview(prev => {
-      if (prev) URL.revokeObjectURL(prev.url);
-      return { url: URL.createObjectURL(file), time: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) };
-    });
-    dispatch({ type: 'photo', on: true });
+    setBusy(true);
+    setPhotoError(null);
+    const localUrl = URL.createObjectURL(file);
+    try {
+      const path = await uploadPhoto(s.orderNo, await shrinkPhoto(file));
+      setPreview(prev => {
+        if (prev) URL.revokeObjectURL(prev);
+        return localUrl;
+      });
+      dispatch({ type: 'photoPath', path });
+    } catch (err) {
+      URL.revokeObjectURL(localUrl);
+      setPhotoError(err instanceof Error ? err.message : 'The photo could not be saved. Try again.');
+    } finally {
+      setBusy(false);
+    }
   }
 
-  function retake() {
+  async function retake() {
+    const path = s.photoPath;
     setPreview(prev => {
-      if (prev) URL.revokeObjectURL(prev.url);
+      if (prev) URL.revokeObjectURL(prev);
       return null;
     });
-    dispatch({ type: 'photo', on: false });
+    setPhotoError(null);
+    dispatch({ type: 'photoPath', path: null });
+    if (path) await deletePhoto(path);
   }
 
   if (s.mode === 'picture') {
@@ -122,10 +141,10 @@ export function DesignStep({ s, dispatch }: StepProps) {
           {s.photo
             ? (
               <div className="photo">
-                {preview
-                  ? <img src={preview.url} alt="Photo of the ornament" />
-                  : <b>Photo recorded</b>}
-                <span style={{ fontSize: 13 }}>{preview ? `Captured ${preview.time}` : 'Retake to see the photo again'}</span>
+                {shown
+                  ? <img src={shown} alt="Photo of the ornament" />
+                  : <b>Photo saved</b>}
+                <span style={{ fontSize: 13 }}>{preview ? 'Captured just now' : 'Saved with this order'}</span>
               </div>
             )
             : (
@@ -143,15 +162,16 @@ export function DesignStep({ s, dispatch }: StepProps) {
             </ul>
             <p className="muted">A photo can only estimate size, so the price shows as a range until the CAD model is made.</p>
             <div className="grow" />
+            {photoError && <div className="note bad" role="alert">{photoError}</div>}
             {s.photo
               ? (
                 <div className="actions">
-                  <button className="btn ghost" onClick={retake}>Retake</button>
-                  <button className="btn" onClick={() => fileRef.current?.click()}>Choose another</button>
-                  <button className="btn primary lg" onClick={() => dispatch({ type: 'continueToEstimate' })}>Use this photo</button>
+                  <button className="btn ghost" onClick={retake} disabled={busy}>Retake</button>
+                  <button className="btn" disabled={busy} onClick={() => fileRef.current?.click()}>Choose another</button>
+                  <button className="btn primary lg" disabled={busy} onClick={() => dispatch({ type: 'continueToEstimate' })}>Use this photo</button>
                 </div>
               )
-              : <button className="btn primary lg" onClick={() => fileRef.current?.click()}>Take photo</button>}
+              : <button className="btn primary lg" disabled={busy} onClick={() => fileRef.current?.click()}>{busy ? 'Saving photo…' : 'Take photo'}</button>}
           </section>
         </div>
         <div className="actions">{back}<span className="faint">Step 2 of 5</span></div>

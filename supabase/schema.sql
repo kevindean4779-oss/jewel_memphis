@@ -27,3 +27,8 @@ create table if not exists public.metal_rates (
   fetched_at timestamptz not null default now()
 );
 alter table public.metal_rates enable row level security;
+
+-- Ornament photos. A private bucket: the app reads and writes it only through the
+-- /api/photo route, which uses the service role key.
+insert into storage.buckets (id, name, public) values ('order-photos', 'order-photos', false)
+  on conflict (id) do nothing;
