@@ -1,4 +1,4 @@
-import type { ChangeEvent } from 'react';
+import { useRef, useState, type ChangeEvent } from 'react';
 import { KARATS, METHODS, OCCASIONS, STONES, type Mode } from './data';
 import { allCadOk, allOptions, cadRules, custOk, dimsOk, price, readyDate, type Market, type Option } from './pricing';
 import { taxLabel } from './config';
@@ -91,13 +91,43 @@ export function CustomerStep({ s, dispatch }: StepProps) {
 export function DesignStep({ s, dispatch }: StepProps) {
   const { mk } = useMarket();
   const back = <button className="btn ghost" onClick={() => dispatch({ type: 'go', step: 0 })}>← Back</button>;
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState<{ url: string; time: string } | null>(null);
+
+  // iPad and phone browsers open the camera for this input (capture="environment").
+  function onPhoto(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setPreview(prev => {
+      if (prev) URL.revokeObjectURL(prev.url);
+      return { url: URL.createObjectURL(file), time: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) };
+    });
+    dispatch({ type: 'photo', on: true });
+  }
+
+  function retake() {
+    setPreview(prev => {
+      if (prev) URL.revokeObjectURL(prev.url);
+      return null;
+    });
+    dispatch({ type: 'photo', on: false });
+  }
 
   if (s.mode === 'picture') {
     return (
       <>
+        <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={onPhoto} hidden />
         <div className="grid2">
           {s.photo
-            ? <div className="photo"><b>Photo of the ornament</b><span style={{ fontSize: 13 }}>Captured 12:01 PM ET</span></div>
+            ? (
+              <div className="photo">
+                {preview
+                  ? <img src={preview.url} alt="Photo of the ornament" />
+                  : <b>Photo recorded</b>}
+                <span style={{ fontSize: 13 }}>{preview ? `Captured ${preview.time}` : 'Retake to see the photo again'}</span>
+              </div>
+            )
             : (
               <div className="viewfinder">
                 <b>Ready to capture</b>
@@ -116,11 +146,12 @@ export function DesignStep({ s, dispatch }: StepProps) {
             {s.photo
               ? (
                 <div className="actions">
-                  <button className="btn ghost" onClick={() => dispatch({ type: 'photo', on: false })}>Retake</button>
+                  <button className="btn ghost" onClick={retake}>Retake</button>
+                  <button className="btn" onClick={() => fileRef.current?.click()}>Choose another</button>
                   <button className="btn primary lg" onClick={() => dispatch({ type: 'continueToEstimate' })}>Use this photo</button>
                 </div>
               )
-              : <button className="btn primary lg" onClick={() => dispatch({ type: 'photo', on: true })}>Take photo</button>}
+              : <button className="btn primary lg" onClick={() => fileRef.current?.click()}>Take photo</button>}
           </section>
         </div>
         <div className="actions">{back}<span className="faint">Step 2 of 5</span></div>

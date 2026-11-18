@@ -332,6 +332,7 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
   background: linear-gradient(160deg, #F1E8D4, #DCC999);
 }
 .photo b { font-size: var(--fs-xl); font-weight: 650; color: #4E4120; }
+.photo img { width: 100%; max-height: 420px; object-fit: contain; border-radius: var(--r-md); background: var(--surface); }
 .viewfinder {
   flex: 1; min-height: 320px; padding: var(--s8); border-radius: var(--r-lg);
   border: 1.5px dashed var(--border-strong); background: var(--surface);
