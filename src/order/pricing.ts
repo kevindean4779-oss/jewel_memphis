@@ -11,9 +11,7 @@ export interface Market {
 // Price per gram of this karat/alloy: spot rate of its metal family × purity factor.
 export function gramRate(mk: Market, m: Metal): number {
   const k = KARATS[m];
-  const base = k.family === 'gold' ? mk.rates.gold24Gram
-    : k.family === 'platinum' ? mk.rates.platinumGram
-      : mk.rates.silverGram;
+  const base = k.family === 'gold' ? mk.rates.gold24Gram : mk.rates.silverGram;
   return base * k.purity;
 }
 

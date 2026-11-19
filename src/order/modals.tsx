@@ -19,11 +19,10 @@ export function RatesModal({ mk, onClose }: { mk: Market; onClose: () => void })
   const { liveState } = useMarket();
   const rows: [string, number][] = [
     ['24K gold, per gram', mk.rates.gold24Gram],
-    ...(['22K', '18K', '14K', '10K', 'S925', 'PT950'] as const).map(k =>
+    ...(['18K', '14K', '10K', 'S925'] as const).map(k =>
       [`${KARATS[k].label}, per gram`, gramRate(mk, k)] as [string, number]),
     ['Gold spot, per troy ounce', mk.rates.gold24Gram * TROY_OZ_GRAMS],
     ['Silver spot, per troy ounce', mk.rates.silverGram * TROY_OZ_GRAMS],
-    ['Platinum spot, per troy ounce', mk.rates.platinumGram * TROY_OZ_GRAMS],
   ];
   return (
     <Overlay onClose={onClose}>
@@ -38,7 +37,7 @@ export function RatesModal({ mk, onClose }: { mk: Market; onClose: () => void })
       )}
       <p className="muted">
         {mk.rates.source === 'live'
-          ? 'Gold, silver and platinum are live spot prices. Stone prices are set in owner settings.'
+          ? 'Gold and silver are live spot prices. Stone prices are set in owner settings.'
           : 'Showing owner-entered rates. Change them in Settings.'}
       </p>
       <div className="actions"><span /><button className="btn dark" onClick={onClose}>Close</button></div>
@@ -107,15 +106,13 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       </div>
       <div className="sec">Metal prices</div>
       <label className="check"><input type="checkbox" checked={draft.useLivePrices} onChange={e => set('useLivePrices', e.target.checked)} />
-        <span>Use live spot prices for gold, silver and platinum</span></label>
+        <span>Use live spot prices for gold and silver</span></label>
       <p className="muted">Used when live prices are off or unavailable. Spot prices, in USD per troy ounce:</p>
       <div className="fields">
         <label className="field"><span>Gold 24K</span>
           <input type="number" value={show(+draft.manualOz.gold24.toFixed(2))} onChange={e => set('manualOz', { ...draft.manualOz, gold24: num(e.target.value) })} /></label>
         <label className="field"><span>Silver</span>
           <input type="number" value={show(draft.manualOz.silver)} onChange={e => set('manualOz', { ...draft.manualOz, silver: num(e.target.value) })} /></label>
-        <label className="field"><span>Platinum</span>
-          <input type="number" value={show(draft.manualOz.platinum)} onChange={e => set('manualOz', { ...draft.manualOz, platinum: num(e.target.value) })} /></label>
       </div>
       <p className="faint">{taxLabel(draft)} · Metals: {METALS.map(m => KARATS[m].label).join(', ')}</p>
       <div className="actions">

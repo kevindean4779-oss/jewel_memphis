@@ -76,12 +76,9 @@ export function buildQuote(mk: Market, s: OrderState): Quote {
   };
 }
 
-// Earliest ready date: base time, plus extra days for platinum, premium stones, and a picture-based estimate.
-export function leadDays(metal: Metal, stones: StoneLine[], mode: Mode): number {
-  return LEAD.base + LEAD.queue
-    + (mode === 'picture' ? LEAD.cadPicture : 0)
-    + (metal === 'PT950' ? LEAD.platinum : 0)
-    + (stones.some(l => l.type === 'naturalP') ? LEAD.premiumStone : 0);
+// Earliest ready date: base time, plus extra days for a picture-based estimate.
+export function leadDays(_metal: Metal, _stones: StoneLine[], mode: Mode): number {
+  return LEAD.base + LEAD.queue + (mode === 'picture' ? LEAD.cadPicture : 0);
 }
 
 export function readyDate(metal: Metal, stones: StoneLine[], mode: Mode, today = new Date()): Date {

@@ -11,7 +11,7 @@ export interface OwnerConfig {
   deposits: number[];
   defaultDeposit: number;
   stonePerCt: Record<StoneKey, number>;
-  manualOz: { gold24: number; silver: number; platinum: number }; // USD per troy ounce
+  manualOz: { gold24: number; silver: number }; // USD per troy ounce
   useLivePrices: boolean;
 }
 
@@ -35,7 +35,7 @@ export const DEFAULT_CONFIG: OwnerConfig = {
   deposits: [25, 50, 100],
   defaultDeposit: 50,
   stonePerCt: Object.fromEntries(STONE_KEYS.map(k => [k, STONES[k].perCt])) as Record<StoneKey, number>,
-  manualOz: { gold24: 130.44 * TROY_OZ_GRAMS, silver: 50, platinum: 1459.3 },
+  manualOz: { gold24: 130.44 * TROY_OZ_GRAMS, silver: 50 },
   useLivePrices: true,
 };
 
@@ -75,8 +75,8 @@ export function settingsProblem(c: OwnerConfig): string | null {
   if (Object.values(c.sizeCt).some(v => !Number.isFinite(v) || v <= 0)) return 'Every stone size needs a carat weight above 0.'; 
   if (!Number.isFinite(c.taxRate) || c.taxRate < 0 || c.taxRate > 0.25) return 'Sales tax must be between 0% and 25%.';
   if (Object.values(c.stonePerCt).some(v => !Number.isFinite(v) || v < 0)) return 'Stone prices must be numbers, zero or more.';
-  const { gold24, silver, platinum } = c.manualOz;
-  if (![gold24, silver, platinum].every(v => Number.isFinite(v) && v > 0)) return 'Manual metal prices must be above zero.';
+  const { gold24, silver } = c.manualOz;
+  if (![gold24, silver].every(v => Number.isFinite(v) && v > 0)) return 'Manual metal prices must be above zero.';
   return null;
 }
 

@@ -1,5 +1,5 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
-import { DRAFT_KEY, type Metal, type Mode } from './data';
+import { DRAFT_KEY, KARATS, STONES, type Metal, type Mode } from './data';
 import { DEFAULT_CONFIG } from './config';
 import { allCadOk } from './pricing';
 import { estimatedWeight } from './quote';
@@ -90,13 +90,18 @@ export function normalizeOrder(saved: Partial<OrderState>): OrderState {
   const amount = typeof saved.depositAmount === 'number' && Number.isFinite(saved.depositAmount) && saved.depositAmount > 0
     ? saved.depositAmount
     : null;
-  const stones = Array.isArray(saved.stones) ? saved.stones : base.stones;
+  // Drafts saved before the metal and stone list was narrowed fall back to the nearest option.
+  const metal = saved.metal && saved.metal in KARATS ? saved.metal : base.metal;
+  const stones = (Array.isArray(saved.stones) ? saved.stones : base.stones).map(l => (
+    l && l.type in STONES ? l : { ...l, type: 'natural' as const, perCt: STONES.natural.perCt }
+  ));
   const services = Array.isArray(saved.services) ? saved.services : base.services;
   return {
     ...base,
     ...saved,
     step,
     cust: { ...base.cust, ...saved.cust },
+    metal,
     dims: { w: dim(saved.dims?.w, base.dims.w), h: dim(saved.dims?.h, base.dims.h), d: dim(saved.dims?.d, base.dims.d) },
     weight: typeof saved.weight === 'number' && saved.weight > 0 ? saved.weight : null,
     waste: num(saved.waste, base.waste, n => n <= 50),

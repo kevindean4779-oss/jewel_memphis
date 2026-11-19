@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_CONFIG } from '../src/order/config';
 import { buildQuote, caratOf, estimatedWeight, readyDate, stoneCost } from '../src/order/quote';
 import { gramRate, type Market } from '../src/order/pricing';
+import { KARATS, STONES } from '../src/order/data';
 import { blankOrder, reduce } from '../src/order/state';
 import type { StoneLine } from '../src/order/types';
 
@@ -9,7 +10,7 @@ import type { StoneLine } from '../src/order/types';
 const TROY = 31.1035;
 const mk: Market = {
   cfg: DEFAULT_CONFIG,
-  rates: { gold24Gram: 3727 / TROY, silverGram: 50 / TROY, platinumGram: 1459 / TROY, source: 'manual', time: 'test' },
+  rates: { gold24Gram: 3727 / TROY, silverGram: 50 / TROY, source: 'manual', time: 'test' },
 };
 
 const base = () => ({
@@ -106,10 +107,19 @@ describe('weight and terms', () => {
 });
 
 describe('ready date', () => {
-  it('adds time for premium stones and platinum', () => {
+  it('adds time for a picture-based estimate only', () => {
     const today = new Date(2026, 0, 1);
-    const plain = readyDate('14K', [], 'dims', today);
-    const premium = readyDate('PT950', [{ id: 'a', type: 'naturalP', sizeMm: 1.5, qty: 1, perCt: 900, setting: 3 }], 'dims', today);
-    expect((premium.getTime() - plain.getTime()) / 86400000).toBe(9);
+    const dims = readyDate('14K', [], 'dims', today);
+    const picture = readyDate('14K', [], 'picture', today);
+    expect((picture.getTime() - dims.getTime()) / 86400000).toBe(3);
+  });
+});
+
+describe('shop options', () => {
+  it('offers only 18K, 14K, 10K gold and silver', () => {
+    expect(Object.keys(KARATS).sort()).toEqual(['10K', '14K', '18K', 'S925']);
+  });
+  it('offers only natural, lab-grown, moissanite and CZ stones', () => {
+    expect(Object.keys(STONES).sort()).toEqual(['cz', 'lab', 'moissanite', 'natural']);
   });
 });

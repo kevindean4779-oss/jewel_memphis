@@ -4,27 +4,26 @@ export const TROY_OZ_GRAMS = 31.1035;
 
 export const MAKING_NOTE = 'Making fee is set in owner settings.';
 
-export const LEAD = { base: 14, queue: 3, cadPicture: 3, platinum: 7, premiumStone: 2 }; // days
+export const LEAD = { base: 14, queue: 3, cadPicture: 3 }; // days
 
-export type MetalFamily = 'gold' | 'platinum' | 'silver';
+export type MetalFamily = 'gold' | 'silver';
 
 // Purity factors as published in the vendor's jewelry pricing calculator.
+// The metals this shop quotes: 18K, 14K and 10K gold, and sterling silver.
 export const KARATS = {
-  '22K': { label: '22K gold', family: 'gold', purity: 0.9167, density: 17.7 },
   '18K': { label: '18K gold', family: 'gold', purity: 0.75, density: 15.5 },
   '14K': { label: '14K gold', family: 'gold', purity: 0.5833, density: 13.1 },
   '10K': { label: '10K gold', family: 'gold', purity: 0.4167, density: 11.6 },
-  PT950: { label: 'Platinum 950', family: 'platinum', purity: 0.95, density: 20.4 },
   S925: { label: 'Sterling silver 925', family: 'silver', purity: 0.925, density: 10.36 },
 } as const;
 export type Metal = keyof typeof KARATS;
 export const METALS = Object.keys(KARATS) as Metal[];
 
+// The stones this shop sets: natural diamond, lab-grown diamond, moissanite and cubic zirconia.
 export const STONES = {
-  natural: { label: 'Natural · standard', name: 'Natural diamonds, standard quality', perCt: 600, carat: 0.2 },
-  naturalP: { label: 'Natural · premium', name: 'Natural diamonds, premium quality', perCt: 900, carat: 0.2 },
-  lab: { label: 'Lab-grown', name: 'Lab-grown diamonds', perCt: 240, carat: 0.2 },
-  monzonite: { label: 'Monzonite', name: 'Monzonite', perCt: 120, carat: 0.2 },
+  natural: { label: 'Natural diamond', name: 'Natural diamonds', perCt: 600, carat: 0.2 },
+  lab: { label: 'Lab-grown diamond', name: 'Lab-grown diamonds', perCt: 240, carat: 0.2 },
+  moissanite: { label: 'Moissanite', name: 'Moissanite', perCt: 120, carat: 0.2 },
   cz: { label: 'Cubic zirconia', name: 'Cubic zirconia', perCt: 20, carat: 0.2 },
 };
 export type StoneKey = keyof typeof STONES;
