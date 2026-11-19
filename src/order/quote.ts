@@ -39,6 +39,7 @@ export interface Quote {
   labour: number;
   stones: number;
   services: number;
+  making: number; // design + wax + polishing
   production: number;
   markup: number;
   quote: number; // before tax
@@ -55,7 +56,8 @@ export function buildQuote(mk: Market, s: OrderState): Quote {
   const labour = weight * s.labour;
   const stones = s.stones.reduce((t, l) => t + stoneCost(mk, l).total, 0);
   const services = s.services.reduce((t, v) => t + (Number.isFinite(v.cost) ? v.cost : 0), 0);
-  const production = metal + labour + stones + services;
+  const making = s.makingDesign + s.makingWax + s.makingPolish;
+  const production = metal + labour + stones + services + making;
   const quoteAmt = cents(production * s.markup);
   const margin = quoteAmt > 0 ? (quoteAmt - production) / quoteAmt : 0;
   const tax = cents(quoteAmt * mk.cfg.taxRate);
@@ -67,6 +69,7 @@ export function buildQuote(mk: Market, s: OrderState): Quote {
     labour,
     stones,
     services,
+    making,
     production,
     markup: s.markup,
     quote: quoteAmt,

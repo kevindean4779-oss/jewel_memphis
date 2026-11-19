@@ -19,9 +19,13 @@ export const KARATS = {
 export type Metal = keyof typeof KARATS;
 export const METALS = Object.keys(KARATS) as Metal[];
 
-// The stones this shop sets: natural diamond, lab-grown diamond, moissanite and cubic zirconia.
+// The stones this shop sets. Natural diamonds are graded by clarity; prices are $ per carat.
 export const STONES = {
-  natural: { label: 'Natural diamond', name: 'Natural diamonds', perCt: 600, carat: 0.2 },
+  natural_iclean: { label: 'Natural · I clean', name: 'Natural diamonds, I clean', perCt: 200, carat: 0.2 },
+  natural_i1: { label: 'Natural · I clean 1', name: 'Natural diamonds, I clean 1', perCt: 300, carat: 0.2 },
+  natural_si: { label: 'Natural · SI', name: 'Natural diamonds, SI', perCt: 400, carat: 0.2 },
+  natural_vs2: { label: 'Natural · VS2', name: 'Natural diamonds, VS2', perCt: 500, carat: 0.2 },
+  natural_vs1: { label: 'Natural · VS1', name: 'Natural diamonds, VS1', perCt: 600, carat: 0.2 },
   lab: { label: 'Lab-grown diamond', name: 'Lab-grown diamonds', perCt: 240, carat: 0.2 },
   moissanite: { label: 'Moissanite', name: 'Moissanite', perCt: 120, carat: 0.2 },
   cz: { label: 'Cubic zirconia', name: 'Cubic zirconia', perCt: 20, carat: 0.2 },

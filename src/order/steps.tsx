@@ -5,7 +5,7 @@ import { KARATS, METALS, METHODS, OCCASIONS, STONE_KEYS, STONES, type Mode } fro
 import type { StoneKey } from './data';
 import { allCadOk, cadRules, custErrors, custOk, depositDue, dimsOk, parseAmount, percentOf, sizeErrors, type CustErrors, type CustKey } from './pricing';
 import { buildQuote, readyDate, stoneCost } from './quote';
-import { newId, newOrderNo } from './state';
+import { newId, newOrderNo, termsFromConfig } from './state';
 import { taxLabel } from './config';
 import { useMarket } from './market';
 import { fmtDate, isoOf, money, parseISO } from './format';
@@ -251,7 +251,7 @@ export function EstimateStep({ s, dispatch, onShowRates }: StepProps & { onShowR
 
   const addStone = () => dispatch({
     type: 'stoneAdd',
-    line: { id: newId(), type: 'natural', sizeMm: sizes[0] ?? 1, qty: 1, perCt: mk.cfg.stonePerCt.natural, setting: mk.cfg.settingPerStone },
+    line: { id: newId(), type: 'natural_vs2', sizeMm: sizes[0] ?? 1, qty: 1, perCt: mk.cfg.stonePerCt.natural_vs2, setting: mk.cfg.settingPerStone },
   });
   const addService = () => dispatch({ type: 'serviceAdd', line: { id: newId(), name: '', cost: 0 } });
 
@@ -290,7 +290,7 @@ export function EstimateStep({ s, dispatch, onShowRates }: StepProps & { onShowR
                 hint={q.weightIsEstimate ? `Estimated from size: ${q.weight.toFixed(2)} g. Type the weight from your scale.` : 'Weight entered for this ornament.'}
               />
               <Num id="waste-input" label="Waste / loss" value={s.waste} onChange={v => v !== null && dispatch({ type: 'waste', value: v })} step="0.5" suffix="%" hint="5% fabrication · 8–12% casting" />
-              <Num id="labour-input" label="Labour per gram" value={s.labour} onChange={v => v !== null && dispatch({ type: 'labour', value: v })} step="0.5" suffix="$/g" />
+              <Num id="labour-input" label="Casting cost per gram" value={s.labour} onChange={v => v !== null && dispatch({ type: 'labour', value: v })} step="0.5" suffix="$/g" />
             </div>
             {!q.weightIsEstimate && <button className="link" style={{ alignSelf: 'flex-start' }} onClick={() => dispatch({ type: 'weight', value: null })}>Use the estimated weight</button>}
             <div className="faint">{mk.rates.source === 'live' ? 'Live spot rates' : 'Owner rates'}, {mk.rates.time} · <button className="link inline" onClick={onShowRates}>Show prices</button></div>
@@ -331,6 +331,15 @@ export function EstimateStep({ s, dispatch, onShowRates }: StepProps & { onShowR
           </section>
 
           <section className="card">
+            <div className="sec">Making charges <span className="hint">flat, per ornament</span></div>
+            <div className="fields">
+              <Num id="making-design" label="Design" value={s.makingDesign} onChange={v => v !== null && dispatch({ type: 'making', field: 'makingDesign', value: v })} step="1" suffix="$" />
+              <Num id="making-wax" label="Wax design" value={s.makingWax} onChange={v => v !== null && dispatch({ type: 'making', field: 'makingWax', value: v })} step="1" suffix="$" />
+              <Num id="making-polish" label="Polishing and finishing" value={s.makingPolish} onChange={v => v !== null && dispatch({ type: 'making', field: 'makingPolish', value: v })} step="1" suffix="$" />
+            </div>
+          </section>
+
+          <section className="card">
             <div className="sec">Services <span className="hint">flat charges, such as plating or CAD</span></div>
             {s.services.length === 0 && <p className="muted">No services. Add plating, engraving or design time here.</p>}
             {s.services.map(v => (
@@ -368,9 +377,10 @@ export function EstimateStep({ s, dispatch, onShowRates }: StepProps & { onShowR
               <span className={`pill ${s.exact ? 'ok' : 'warn'}`}>{s.exact ? 'Size locked by CAD' : 'Estimate until CAD is made'}</span>
             </div>
             <Kv label={`${KARATS[s.metal].label}, ${q.weight.toFixed(2)} g + ${s.waste}% waste`} value={money(q.metal)} />
-            <Kv label={`Casting labour, ${q.weight.toFixed(2)} g × $${s.labour}`} value={money(q.labour)} />
+            <Kv label={`Casting cost, ${q.weight.toFixed(2)} g × $${s.labour}`} value={money(q.labour)} />
             <Kv label={`Stones (${s.stones.length})`} value={money(q.stones)} />
             <Kv label={`Services (${s.services.length})`} value={money(q.services)} />
+            <Kv label="Making charges (design, wax, polishing)" value={money(q.making)} />
             <div className="kv total sub-total"><span>Production cost</span><b>{money(q.production)}</b></div>
             <div className="markup-row">
               <Num id="markup-input" label="Markup multiplier" value={s.markup} onChange={v => v !== null && dispatch({ type: 'markup', value: v })} step="0.1" min="1" suffix="×" hint={`Quote = production × ${s.markup}. Gross margin ${pct(q.margin)}.`} />
@@ -686,7 +696,8 @@ export function ConfirmStep({ s, dispatch }: StepProps) {
           <section className="card">
             <div className="sec">Price breakdown</div>
             <Kv label={`Metal, incl. ${s.waste}% waste`} value={money(o.metal)} />
-            <Kv label="Casting labour" value={money(o.labour)} />
+            <Kv label="Casting cost" value={money(o.labour)} />
+            <Kv label="Making charges (design, wax, polishing)" value={money(o.making)} />
             <Kv label="Stones and setting" value={money(o.stones)} />
             <Kv label="Services" value={money(o.services)} />
             <Kv label="Production cost" value={money(o.production)} />
@@ -746,7 +757,7 @@ export function ConfirmStep({ s, dispatch }: StepProps) {
             {!s.exact && !locked && <div className="note warn">The price is an estimate. Generate the CAD model on the CAD step to make it final.</div>}
             <div className="actions-stack">
               {locked
-                ? <button className="btn dark lg" onClick={() => dispatch({ type: 'newOrder', orderNo: newOrderNo(), terms: { markup: mk.cfg.markup, waste: mk.cfg.wastePct, labour: mk.cfg.labourPerG } })}>Start a new order</button>
+                ? <button className="btn dark lg" onClick={() => dispatch({ type: 'newOrder', orderNo: newOrderNo(), terms: termsFromConfig(mk.cfg) })}>Start a new order</button>
                 : (
                   <>
                     {sendError && <div className="note bad" role="alert">{sendError}</div>}

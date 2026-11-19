@@ -6,7 +6,7 @@ import { CustomerStep, DesignStep, EstimateStep, CadStep, ConfirmStep } from './
 import { RatesModal, SettingsModal, OrdersModal } from './order/modals';
 import { MarketProvider, useMarket } from './order/market';
 import { WorkshopTicket } from './order/ticket';
-import { newOrderNo } from './order/state';
+import { newOrderNo, termsFromConfig } from './order/state';
 import { isUnlocked, lockCounter } from './lock/client';
 import { LockScreen } from './lock/LockScreen';
 
@@ -51,7 +51,7 @@ function Counter() {
             </button>
             <button className="btn ghost" onClick={() => setModal('settings')}>Settings</button>
             <button className="btn ghost" onClick={lockNow}>Lock</button>
-            <button className="btn dark" onClick={() => dispatch({ type: 'newOrder', orderNo: newOrderNo(), terms: { markup: mk.cfg.markup, waste: mk.cfg.wastePct, labour: mk.cfg.labourPerG } })}>New order</button>
+            <button className="btn dark" onClick={() => dispatch({ type: 'newOrder', orderNo: newOrderNo(), terms: termsFromConfig(mk.cfg) })}>New order</button>
           </div>
         </div>
         <div className="steps-bar">

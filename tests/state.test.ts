@@ -28,7 +28,7 @@ describe('order reducer', () => {
     expect(reduce(start, { type: 'generateCad' }).exact).toBe(true);
   });
   it('adds, edits and removes stone lines', () => {
-    const line = { id: 'a', type: 'natural' as const, sizeMm: 1.5, qty: 2, perCt: 800, setting: 3 };
+    const line = { id: 'a', type: 'natural_vs1' as const, sizeMm: 1.5, qty: 2, perCt: 800, setting: 3 };
     const added = reduce(start, { type: 'stoneAdd', line });
     expect(added.stones).toHaveLength(1);
     const edited = reduce(added, { type: 'stoneUpdate', id: 'a', patch: { qty: 4 } });

@@ -1,24 +1,34 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
 import { DRAFT_KEY, KARATS, STONES, type Metal, type Mode } from './data';
-import { DEFAULT_CONFIG } from './config';
+import { DEFAULT_CONFIG, type OwnerConfig } from './config';
 import { allCadOk } from './pricing';
 import { estimatedWeight } from './quote';
 import { nowTime } from './format';
 import { saveOrderRemote } from './db';
 import type { CheckKey, Customer, Dims, OrderState, ServiceLine, StoneLine } from './types';
 
-// Terms the counter starts from. The owner's settings replace these for each new order.
+// Terms the counter starts from. The owner's settings are copied into each new order.
 export interface OrderTerms {
   markup: number;
   waste: number;
   labour: number;
+  makingDesign: number;
+  makingWax: number;
+  makingPolish: number;
 }
 
-export const DEFAULT_TERMS: OrderTerms = {
-  markup: DEFAULT_CONFIG.markup,
-  waste: DEFAULT_CONFIG.wastePct,
-  labour: DEFAULT_CONFIG.labourPerG,
-};
+export function termsFromConfig(c: OwnerConfig): OrderTerms {
+  return {
+    markup: c.markup,
+    waste: c.wastePct,
+    labour: c.labourPerG,
+    makingDesign: c.designCharge,
+    makingWax: c.waxCharge,
+    makingPolish: c.polishingCharge,
+  };
+}
+
+export const DEFAULT_TERMS: OrderTerms = termsFromConfig(DEFAULT_CONFIG);
 
 export type Action =
   | { type: 'go'; step: number }
@@ -31,6 +41,7 @@ export type Action =
   | { type: 'weight'; value: number | null }
   | { type: 'waste'; value: number }
   | { type: 'labour'; value: number }
+  | { type: 'making'; field: 'makingDesign' | 'makingWax' | 'makingPolish'; value: number }
   | { type: 'markup'; value: number }
   | { type: 'stoneAdd'; line: StoneLine }
   | { type: 'stoneUpdate'; id: string; patch: Partial<Omit<StoneLine, 'id'>> }
@@ -67,6 +78,9 @@ export function blankOrder(orderNo: string, terms: OrderTerms = DEFAULT_TERMS): 
     weight: null,
     waste: terms.waste,
     labour: terms.labour,
+    makingDesign: terms.makingDesign,
+    makingWax: terms.makingWax,
+    makingPolish: terms.makingPolish,
     markup: terms.markup,
     stones: [],
     services: [],
@@ -93,7 +107,7 @@ export function normalizeOrder(saved: Partial<OrderState>): OrderState {
   // Drafts saved before the metal and stone list was narrowed fall back to the nearest option.
   const metal = saved.metal && saved.metal in KARATS ? saved.metal : base.metal;
   const stones = (Array.isArray(saved.stones) ? saved.stones : base.stones).map(l => (
-    l && l.type in STONES ? l : { ...l, type: 'natural' as const, perCt: STONES.natural.perCt }
+    l && l.type in STONES ? l : { ...l, type: 'natural_vs2' as const, perCt: STONES.natural_vs2.perCt }
   ));
   const services = Array.isArray(saved.services) ? saved.services : base.services;
   return {
@@ -106,6 +120,9 @@ export function normalizeOrder(saved: Partial<OrderState>): OrderState {
     weight: typeof saved.weight === 'number' && saved.weight > 0 ? saved.weight : null,
     waste: num(saved.waste, base.waste, n => n <= 50),
     labour: num(saved.labour, base.labour),
+    makingDesign: num(saved.makingDesign, base.makingDesign),
+    makingWax: num(saved.makingWax, base.makingWax),
+    makingPolish: num(saved.makingPolish, base.makingPolish),
     markup: num(saved.markup, base.markup, n => n >= 1),
     stones,
     services,
@@ -140,6 +157,8 @@ export function reduce(s: OrderState, a: Action): OrderState {
       return Number.isFinite(a.value) && a.value >= 0 && a.value <= 50 ? { ...s, waste: a.value } : s;
     case 'labour':
       return Number.isFinite(a.value) && a.value >= 0 ? { ...s, labour: a.value } : s;
+    case 'making':
+      return Number.isFinite(a.value) && a.value >= 0 ? { ...s, [a.field]: a.value } : s;
     case 'markup':
       return Number.isFinite(a.value) && a.value >= 1 && a.value <= 10 ? { ...s, markup: a.value } : s;
     case 'stoneAdd':

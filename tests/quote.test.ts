@@ -21,7 +21,7 @@ const base = () => ({
   labour: 10,
   markup: 2.5,
   services: [{ id: 'p', name: 'Rhodium plating', cost: 25 }],
-  stones: [{ id: 's', type: 'natural' as const, sizeMm: 1.5, qty: 5, perCt: 803, setting: 1 }],
+  stones: [{ id: 's', type: 'natural_vs1' as const, sizeMm: 1.5, qty: 5, perCt: 803, setting: 1 }],
 });
 
 describe('vendor calculator example (14K, 5 g, 5 × 1.5 mm natural, plating)', () => {
@@ -55,7 +55,7 @@ describe('vendor calculator example (14K, 5 g, 5 × 1.5 mm natural, plating)', (
 
 describe('stones', () => {
   it('stone cost is quantity × carats × $/ct plus setting for each stone', () => {
-    const line: StoneLine = { id: 'x', type: 'natural', sizeMm: 1.5, qty: 10, perCt: 800, setting: 3.5 };
+    const line: StoneLine = { id: 'x', type: 'natural_vs1', sizeMm: 1.5, qty: 10, perCt: 800, setting: 3.5 };
     const c = stoneCost(mk, line);
     expect(c.carats).toBeCloseTo(0.15, 6);
     expect(c.total).toBeCloseTo(120 + 35, 6);
@@ -80,8 +80,8 @@ describe('weight and terms', () => {
   });
 
   it('a new order starts from the owner terms', () => {
-    const o = reduce(blankOrder('CO-4'), { type: 'newOrder', orderNo: 'CO-5', terms: { markup: 3, waste: 8, labour: 12 } });
-    expect([o.markup, o.waste, o.labour]).toEqual([3, 8, 12]);
+    const o = reduce(blankOrder('CO-4'), { type: 'newOrder', orderNo: 'CO-5', terms: { markup: 3, waste: 8, labour: 12, makingDesign: 40, makingWax: 15, makingPolish: 10 } });
+    expect([o.markup, o.waste, o.labour, o.makingDesign, o.makingWax, o.makingPolish]).toEqual([3, 8, 12, 40, 15, 10]);
   });
 
   it('rejects a markup below 1 and a waste above 50%', () => {
@@ -106,6 +106,16 @@ describe('weight and terms', () => {
   });
 });
 
+describe('making charges', () => {
+  it('adds design, wax and polishing to the production cost, before markup', () => {
+    const base = buildQuote(mk, { ...blankOrder('CO-8'), weight: 5, metal: '14K' as const });
+    const withMaking = buildQuote(mk, { ...blankOrder('CO-8'), weight: 5, metal: '14K' as const, makingDesign: 40, makingWax: 15, makingPolish: 10 });
+    expect(withMaking.making).toBe(65);
+    expect(withMaking.production - base.production).toBeCloseTo(65, 6);
+    expect(withMaking.quote).toBeCloseTo(withMaking.production * 2.5, 2);
+  });
+});
+
 describe('ready date', () => {
   it('adds time for a picture-based estimate only', () => {
     const today = new Date(2026, 0, 1);
@@ -119,7 +129,7 @@ describe('shop options', () => {
   it('offers only 18K, 14K, 10K gold and silver', () => {
     expect(Object.keys(KARATS).sort()).toEqual(['10K', '14K', '18K', 'S925']);
   });
-  it('offers only natural, lab-grown, moissanite and CZ stones', () => {
-    expect(Object.keys(STONES).sort()).toEqual(['cz', 'lab', 'moissanite', 'natural']);
+  it('offers natural diamonds by clarity, lab-grown, moissanite and CZ', () => {
+    expect(Object.keys(STONES).sort()).toEqual(['cz', 'lab', 'moissanite', 'natural_i1', 'natural_iclean', 'natural_si', 'natural_vs1', 'natural_vs2']);
   });
 });

@@ -51,7 +51,10 @@ export interface OrderState {
   metal: Metal;
   weight: number | null; // finished grams; null = estimated from the size
   waste: number; // waste %, added to the weight
-  labour: number; // labour $ per gram
+  labour: number; // casting cost $ per gram
+  makingDesign: number; // flat making charges for this ornament, $
+  makingWax: number;
+  makingPolish: number;
   markup: number; // quote = production cost × markup
   stones: StoneLine[];
   services: ServiceLine[];

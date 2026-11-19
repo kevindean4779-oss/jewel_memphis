@@ -5,8 +5,11 @@ export interface OwnerConfig {
   taxRate: number;
   markup: number; // quote = production cost × markup (2.5 is the usual custom-work multiplier)
   wastePct: number; // metal lost to sprues, filings and polishing
-  labourPerG: number; // casting or fabrication labour, $ per gram of finished weight
-  settingPerStone: number; // setting charge for each stone, $
+  labourPerG: number; // casting cost, $ per gram of finished weight
+  settingPerStone: number; // setting cost for each stone, $
+  designCharge: number; // design, flat per ornament, $
+  waxCharge: number; // wax design, flat per ornament, $
+  polishingCharge: number; // polishing and finishing, flat per ornament, $
   sizeCt: Record<string, number>; // stone diameter in mm → carat weight
   deposits: number[];
   defaultDeposit: number;
@@ -23,6 +26,10 @@ export const DEFAULT_SIZE_CT: Record<string, number> = {
   '1.5': 0.015,
   '1.75': 0.024,
   '2': 0.036,
+  '2.25': 0.051,
+  '2.5': 0.07,
+  '2.75': 0.094,
+  '3': 0.121,
 };
 
 export const DEFAULT_CONFIG: OwnerConfig = {
@@ -31,6 +38,9 @@ export const DEFAULT_CONFIG: OwnerConfig = {
   wastePct: 10,
   labourPerG: 10,
   settingPerStone: 3.5,
+  designCharge: 0,
+  waxCharge: 0,
+  polishingCharge: 0,
   sizeCt: DEFAULT_SIZE_CT,
   deposits: [25, 50, 100],
   defaultDeposit: 50,
@@ -71,7 +81,8 @@ export function settingsProblem(c: OwnerConfig): string | null {
   if (!Number.isFinite(c.markup) || c.markup < 1 || c.markup > 10) return 'Markup must be between 1 and 10 (2.5 is typical).';
   if (!Number.isFinite(c.wastePct) || c.wastePct < 0 || c.wastePct > 50) return 'Waste must be between 0% and 50%.';
   if (!Number.isFinite(c.labourPerG) || c.labourPerG < 0) return 'Labour per gram must be a number, zero or more.';
-  if (!Number.isFinite(c.settingPerStone) || c.settingPerStone < 0) return 'Setting charge per stone must be a number, zero or more.';
+  if (!Number.isFinite(c.settingPerStone) || c.settingPerStone < 0) return 'Setting cost per stone must be a number, zero or more.';
+  if (![c.designCharge, c.waxCharge, c.polishingCharge].every(v => Number.isFinite(v) && v >= 0)) return 'Design, wax and polishing charges must be zero or more.';
   if (Object.values(c.sizeCt).some(v => !Number.isFinite(v) || v <= 0)) return 'Every stone size needs a carat weight above 0.'; 
   if (!Number.isFinite(c.taxRate) || c.taxRate < 0 || c.taxRate > 0.25) return 'Sales tax must be between 0% and 25%.';
   if (Object.values(c.stonePerCt).some(v => !Number.isFinite(v) || v < 0)) return 'Stone prices must be numbers, zero or more.';

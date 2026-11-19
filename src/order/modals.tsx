@@ -81,10 +81,16 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           <input type="number" step="0.1" value={show(draft.markup)} onChange={e => set('markup', num(e.target.value))} /></label>
         <label className="field"><span>Waste / loss, %</span>
           <input type="number" step="0.5" value={show(draft.wastePct)} onChange={e => set('wastePct', num(e.target.value))} /></label>
-        <label className="field"><span>Casting labour, $ per gram</span>
+        <label className="field"><span>Casting cost, $ per gram</span>
           <input type="number" step="0.5" value={show(draft.labourPerG)} onChange={e => set('labourPerG', num(e.target.value))} /></label>
-        <label className="field"><span>Setting charge, $ per stone</span>
+        <label className="field"><span>Setting cost, $ per stone</span>
           <input type="number" step="0.5" value={show(draft.settingPerStone)} onChange={e => set('settingPerStone', num(e.target.value))} /></label>
+        <label className="field"><span>Design, $ per ornament</span>
+          <input type="number" step="1" value={show(draft.designCharge)} onChange={e => set('designCharge', num(e.target.value))} /></label>
+        <label className="field"><span>Wax design, $ per ornament</span>
+          <input type="number" step="1" value={show(draft.waxCharge)} onChange={e => set('waxCharge', num(e.target.value))} /></label>
+        <label className="field"><span>Polishing and finishing, $ per ornament</span>
+          <input type="number" step="1" value={show(draft.polishingCharge)} onChange={e => set('polishingCharge', num(e.target.value))} /></label>
         <label className="field"><span>Sales tax, %</span>
           <input type="number" step="0.01" value={show(+(draft.taxRate * 100).toFixed(4))} onChange={e => set('taxRate', num(e.target.value) / 100)} /></label>
         <label className="field full"><span>Deposit options, % (comma separated)</span>
